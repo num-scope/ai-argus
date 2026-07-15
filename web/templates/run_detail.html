@@ -1,0 +1,26 @@
+{{define "run_detail.html"}}
+{{template "head" .}}
+<section class="run-heading" data-run-page data-run-id="{{.Detail.Run.ID}}" data-run-status="{{.Detail.Run.Status}}">
+  <div><a class="back-link" href="/runs">← 返回任务档案</a><p class="eyebrow">LIVE OBSERVATION / RUN-{{printf "%04d" .Detail.Run.ID}}</p><h1>{{.Detail.Run.TargetName}} <span>×</span> {{.Detail.Run.ScenarioName}}</h1><p>{{.Detail.Run.Protocol}} / {{.Detail.Run.Model}} · 创建于 {{formatTime .Detail.Run.CreatedAt}}</p></div>
+  <div class="run-actions">{{template "run-status" .Detail.Run.Status}}<a class="button ghost" href="/reports/{{.Detail.Run.ID}}">查看报告</a>{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}<form method="post" action="/runs/{{.Detail.Run.ID}}/cancel"><button class="button danger" type="submit">停止任务</button></form>{{end}}</div>
+</section>
+
+{{if .Detail.Run.ErrorMessage}}<div class="flash error">{{.Detail.Run.ErrorMessage}}</div>{{end}}
+<section class="live-grid">
+  <article class="signal-card"><span>完成请求</span><strong>{{.Detail.Run.Completed}}{{if gt .Detail.Run.Planned 0}}<small>/ {{.Detail.Run.Planned}}</small>{{else}}<small>/ ∞</small>{{end}}</strong><div class="signal-line"></div></article>
+  <article class="signal-card good-card"><span>成功</span><strong>{{.Detail.Run.Succeeded}}</strong><div class="signal-line"></div></article>
+  <article class="signal-card bad-card"><span>失败</span><strong>{{.Detail.Run.Failed}}</strong><div class="signal-line"></div></article>
+  <article class="signal-card"><span>当前 RPS</span><strong>{{decimal .Detail.Summary.RPS}}</strong><div class="signal-line"></div></article>
+  <article class="signal-card"><span>成功率</span><strong>{{percent .Detail.Summary.SuccessRate}}</strong><div class="signal-line"></div></article>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><div><p class="kicker">REQUEST TELEMETRY</p><h2>请求实施日志</h2></div><span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}页面每 2 秒刷新{{else}}最近 100 条{{end}}</span></div>
+  {{if .Detail.Results}}
+  <div class="table-wrap log-table"><table><thead><tr><th>#</th><th>结果</th><th>HTTP</th><th>E2E</th><th>TTFT</th><th>TPOT</th><th>Token</th><th>尝试</th><th>提示 / 回答 / 错误</th></tr></thead><tbody>
+  {{range .Detail.Results}}<tr><td class="mono">{{printf "%04d" .RequestIndex}}</td><td>{{if .OK}}<span class="result-ok">OK</span>{{else}}<span class="result-bad">ERR</span>{{end}}</td><td class="mono">{{if .Status}}{{derefInt .Status}}{{else}}-{{end}}</td><td class="mono">{{ms .ElapsedMS}}</td><td class="mono">{{if .TTFTMS}}{{ms (derefFloat .TTFTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .TPOTMS}}{{ms (derefFloat .TPOTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .CompletionTokens}}{{derefInt .CompletionTokens}}{{else}}-{{end}}</td><td class="mono">{{.Attempts}}</td><td class="log-copy"><b>问：</b>{{.Prompt}}{{if .ResponsePreview}}<br><b>答：</b>{{.ResponsePreview}}{{end}}{{if .ErrorMessage}}<br><b class="error-copy">错：</b>{{.ErrorMessage}}{{end}}</td></tr>{{end}}
+  </tbody></table></div>
+  {{else}}<div class="empty pulse-empty"><b>等待第一束响应信号</b><span>任务开始后，逐请求观测日志会持续写入这里</span></div>{{end}}
+</section>
+{{template "foot" .}}
+{{end}}

@@ -1,0 +1,45 @@
+{{define "head"}}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#ffffff">
+  <title>AI Argus — AI 性能观测平台</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/pages.css">
+  <link rel="stylesheet" href="/static/report.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+<div class="noise" aria-hidden="true"></div>
+<header class="site-header">
+  <a class="brand" href="/" aria-label="AI Argus 首页">
+    <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span><b>AI Argus</b><small>Performance Intelligence</small></span>
+  </a>
+  <nav aria-label="主导航">
+    <a class="{{if eq .Page "dashboard"}}active{{end}}" href="/">总览</a>
+    <a class="{{if eq .Page "targets"}}active{{end}}" href="/targets">推理目标</a>
+    <a class="{{if eq .Page "scenarios"}}active{{end}}" href="/scenarios">评测场景</a>
+    <a class="{{if or (eq .Page "runs") (eq .Page "reports")}}active{{end}}" href="/runs">运行记录</a>
+  </nav>
+  <div class="system-state"><span></span>系统在线</div>
+</header>
+<main class="shell">
+{{if .Notice}}<div class="flash success">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="flash error">{{.Error}}</div>{{end}}
+{{end}}
+
+{{define "foot"}}
+</main>
+<footer class="site-footer">
+  <span>AI Argus</span>
+  <span>OpenAI Compatible · Custom SSE</span>
+</footer>
+</body>
+</html>
+{{end}}
+
+{{define "run-status"}}<span class="status {{statusClass .}}"><i></i>{{statusLabel .}}</span>{{end}}

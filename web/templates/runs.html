@@ -1,0 +1,41 @@
+{{define "runs.html"}}
+{{template "head" .}}
+<section class="resource-header">
+  <div><h1>运行记录</h1><p>启动性能观测并查看历史结果。</p></div>
+  <span class="count-chip">{{len .Runs}} 次运行</span>
+</section>
+
+<section class="launch-panel panel compact-launch">
+  <div class="launch-copy"><h2>新建运行</h2><p>选择目标和场景即可开始</p></div>
+  <form method="post" action="/runs" class="launch-form">
+    <label><span>推理目标</span><select name="target_id" required><option value="">选择目标</option>{{range .Targets}}<option value="{{.ID}}">{{.Name}} · {{.Model}}</option>{{end}}</select></label>
+    <label><span>评测场景</span><select name="scenario_id" required><option value="">选择场景</option>{{range .Scenarios}}<option value="{{.ID}}">{{.Name}} · {{.Concurrency}} 并发</option>{{end}}</select></label>
+    <button class="button primary" type="submit" {{if or (not .Targets) (not .Scenarios)}}disabled{{end}}>启动观测 <span>→</span></button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><div><h2>历史运行</h2><p>点击任务编号查看实施日志</p></div></div>
+  {{if .Runs}}
+  <div class="table-wrap">
+    <table class="runs-table">
+      <thead><tr><th>任务</th><th>目标 / 模型</th><th>场景</th><th>进度</th><th>状态</th><th>创建时间</th><th></th></tr></thead>
+      <tbody>
+      {{range .Runs}}
+        <tr>
+          <td><a class="mono-link" href="/runs/{{.ID}}">RUN-{{printf "%04d" .ID}}</a></td>
+          <td><b>{{.TargetName}}</b><small class="cell-sub">{{.Protocol}} · {{.Model}}</small></td>
+          <td>{{.ScenarioName}}</td>
+          <td class="mono">{{.Completed}}{{if gt .Planned 0}} / {{.Planned}}{{else}} / ∞{{end}}</td>
+          <td>{{template "run-status" .Status}}</td>
+          <td class="muted-text">{{formatTime .CreatedAt}}</td>
+          <td><a class="arrow-link" href="/reports/{{.ID}}" title="报告">↗</a></td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}<div class="empty"><b>暂无运行记录</b><span>在上方选择目标与场景，开始第一次观测</span></div>{{end}}
+</section>
+{{template "foot" .}}
+{{end}}

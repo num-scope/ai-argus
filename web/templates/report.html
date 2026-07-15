@@ -1,0 +1,31 @@
+{{define "report.html"}}
+{{template "head" .}}
+<section class="report-cover">
+  <div><a class="back-link no-print" href="/runs/{{.Detail.Run.ID}}">← 返回实施日志</a><p class="eyebrow">PERFORMANCE DOSSIER / RUN-{{printf "%04d" .Detail.Run.ID}}</p><h1>模型性能<br>观测报告</h1><p>{{.Detail.Run.TargetName}} × {{.Detail.Run.ScenarioName}}</p></div>
+  <div class="report-stamp"><span>{{statusLabel .Detail.Run.Status}}</span><b>AI ARGUS</b><small>{{formatTime .Detail.Run.CreatedAt}}</small></div>
+</section>
+
+<section class="report-summary">
+  <article><span>请求完成</span><strong>{{.Detail.Run.Completed}}</strong><small>{{.Detail.Run.Succeeded}} 成功 / {{.Detail.Run.Failed}} 失败</small></article>
+  <article><span>成功率</span><strong>{{percent .Detail.Summary.SuccessRate}}</strong><small>RELIABILITY</small></article>
+  <article><span>吞吐</span><strong>{{decimal .Detail.Summary.RPS}}</strong><small>REQUESTS / SEC</small></article>
+  <article><span>总耗时</span><strong>{{decimal .Detail.Summary.DurationSeconds}}</strong><small>SECONDS</small></article>
+</section>
+
+<section class="report-columns">
+  <div class="panel">
+    <div class="panel-head"><div><p class="kicker">LATENCY PROFILE</p><h2>延迟分位</h2></div></div>
+    <div class="metric-table"><div><span>指标</span><span>平均</span><span>P50</span><span>P95</span><span>P99</span><span>样本</span></div>
+      <div><b>E2E 端到端</b><span>{{ms .Detail.Summary.E2E.Average}}</span><span>{{ms .Detail.Summary.E2E.P50}}</span><span>{{ms .Detail.Summary.E2E.P95}}</span><span>{{ms .Detail.Summary.E2E.P99}}</span><span>{{.Detail.Summary.E2E.Samples}}</span></div>
+      <div><b>TTFT 首词元</b><span>{{ms .Detail.Summary.TTFT.Average}}</span><span>{{ms .Detail.Summary.TTFT.P50}}</span><span>{{ms .Detail.Summary.TTFT.P95}}</span><span>{{ms .Detail.Summary.TTFT.P99}}</span><span>{{.Detail.Summary.TTFT.Samples}}</span></div>
+      <div><b>TPOT 每词元</b><span>{{ms .Detail.Summary.TPOT.Average}}</span><span>{{ms .Detail.Summary.TPOT.P50}}</span><span>{{ms .Detail.Summary.TPOT.P95}}</span><span>{{ms .Detail.Summary.TPOT.P99}}</span><span>{{.Detail.Summary.TPOT.Samples}}</span></div>
+      <div><b>HTTP 请求</b><span>{{ms .Detail.Summary.Request.Average}}</span><span>{{ms .Detail.Summary.Request.P50}}</span><span>{{ms .Detail.Summary.Request.P95}}</span><span>{{ms .Detail.Summary.Request.P99}}</span><span>{{.Detail.Summary.Request.Samples}}</span></div>
+      <div><b>Queue 排队</b><span>{{ms .Detail.Summary.Queue.Average}}</span><span>{{ms .Detail.Summary.Queue.P50}}</span><span>{{ms .Detail.Summary.Queue.P95}}</span><span>{{ms .Detail.Summary.Queue.P99}}</span><span>{{.Detail.Summary.Queue.Samples}}</span></div>
+    </div>
+  </div>
+  <aside class="panel token-panel"><p class="kicker">TOKEN ECONOMY</p><h2>Token 画像</h2><dl><div><dt>输入 Token</dt><dd>{{.Detail.Summary.PromptTokens}}</dd></div><div><dt>输出 Token</dt><dd>{{.Detail.Summary.CompletionTokens}}</dd></div><div><dt>总 Token</dt><dd>{{.Detail.Summary.TotalTokens}}</dd></div><div><dt>Usage 覆盖</dt><dd>{{percent .Detail.Summary.UsageCoverage}}</dd></div><div><dt>生成速率</dt><dd>{{decimal .Detail.Summary.GenerationTokensPerSec}} <small>tok/s</small></dd></div><div><dt>墙钟吞吐</dt><dd>{{decimal .Detail.Summary.CompletionTokensPerSec}} <small>tok/s</small></dd></div></dl></aside>
+</section>
+
+<section class="panel report-meta"><div><p class="kicker">RUN CONTEXT</p><h2>运行上下文</h2></div><dl><div><dt>目标</dt><dd>{{.Detail.Run.TargetName}}</dd></div><div><dt>场景</dt><dd>{{.Detail.Run.ScenarioName}}</dd></div><div><dt>协议</dt><dd>{{.Detail.Run.Protocol}}</dd></div><div><dt>模型</dt><dd>{{.Detail.Run.Model}}</dd></div><div><dt>重试</dt><dd>{{.Detail.Summary.Retries}}</dd></div><div><dt>完整响应</dt><dd>{{.Detail.Summary.CompleteResponses}}</dd></div></dl><button class="button ghost no-print" onclick="window.print()">打印 / 导出 PDF</button></section>
+{{template "foot" .}}
+{{end}}

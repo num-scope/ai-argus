@@ -1,0 +1,48 @@
+{{define "targets.html"}}
+{{template "head" .}}
+<section class="resource-header">
+  <div><h1>推理目标</h1><p>管理需要观测的模型接口，密钥只在服务端使用。</p></div>
+  <span class="count-chip">{{len .Targets}} 个目标</span>
+</section>
+
+<section class="resource-stack">
+  <details class="panel create-disclosure" {{if not .Targets}}open{{end}}>
+    <summary><span><b>添加推理目标</b><small>OpenAI 或自定义兼容接口</small></span><i aria-hidden="true">+</i></summary>
+    <form method="post" action="/targets" class="form-grid compact-form" data-target-form>
+      <label><span>目标名称</span><input name="name" required placeholder="生产环境 · DeepSeek"></label>
+      <label><span>协议类型</span><select name="protocol" data-protocol><option value="openai">OpenAI 兼容</option><option value="custom">自定义兼容</option></select></label>
+      <label class="wide"><span>Chat Completions 完整地址</span><input type="url" name="url" required placeholder="https://api.example.com/v1/chat/completions"></label>
+      <label><span>模型标识</span><input name="model" required placeholder="deepseek-chat"></label>
+      <label><span>API Key</span><input type="password" name="api_key" autocomplete="new-password" placeholder="sk-...（可留空）"></label>
+      <details class="wide advanced-fields" data-target-advanced>
+        <summary><span>高级请求配置</span><small>自定义字段、额外 Header 和 Body</small></summary>
+        <div class="advanced-grid">
+          <div class="wide custom-fields" data-custom-fields hidden>
+            <label><span>顶层内容字段</span><input name="custom_content_field" value="content" placeholder="content"></label>
+            <p>支持 reasoning、delta、done 与 error 命名 SSE 事件</p>
+          </div>
+          <label class="wide"><span>额外请求头 JSON</span><textarea name="extra_headers_json" rows="3" spellcheck="false" placeholder='{"X-Tenant-ID":"demo"}'></textarea></label>
+          <label class="wide"><span>额外请求体 JSON</span><textarea name="extra_body_json" rows="3" spellcheck="false" placeholder='{"response_format":{"type":"text"}}'></textarea></label>
+        </div>
+      </details>
+      <div class="wide form-actions"><button class="button primary" type="submit">保存推理目标 <span>→</span></button></div>
+    </form>
+  </details>
+
+  <div class="panel list-panel resource-list-panel">
+    <div class="panel-head"><div><h2>已登记目标</h2><p>用于发起性能观测的接口列表</p></div></div>
+    {{if .Targets}}
+    <div class="card-list">
+      {{range .Targets}}
+      <article class="target-card">
+        <div class="protocol-badge {{.Protocol}}">{{if eq .Protocol "openai"}}OA{{else}}CX{{end}}</div>
+        <div class="card-main"><h3>{{.Name}}</h3><p>{{.URL}}</p><div class="tags"><span>{{.Protocol}}</span><span>{{.Model}}</span>{{if .HasAPIKey}}<span>KEY SET</span>{{end}}</div></div>
+        <form method="post" action="/targets/{{.ID}}/delete" onsubmit="return confirm('确认删除这个推理目标？')"><button class="icon-button" title="删除" aria-label="删除">×</button></form>
+      </article>
+      {{end}}
+    </div>
+    {{else}}<div class="empty"><b>暂无推理目标</b><span>在上方添加第一个 OpenAI 或自定义兼容接口</span></div>{{end}}
+  </div>
+</section>
+{{template "foot" .}}
+{{end}}
