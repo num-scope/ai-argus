@@ -1,28 +1,22 @@
 {{define "targets.html"}}
 {{template "head" .}}
-<section class="resource-header">
-  <div><h1>推理目标</h1><p>管理需要观测的模型接口，密钥只在服务端使用。</p></div>
-  <span class="count-chip">{{len .Targets}} 个目标</span>
-</section>
-
 <section class="resource-stack">
   <details class="panel create-disclosure" {{if not .Targets}}open{{end}}>
-    <summary><span><b>添加推理目标</b><small>OpenAI 或自定义兼容接口</small></span><i aria-hidden="true">+</i></summary>
+    <summary><span><b>添加推理目标</b></span><i aria-hidden="true">+</i></summary>
     <form method="post" action="/targets" class="form-grid compact-form" data-target-form>
-      <label><span>目标名称</span><input name="name" required placeholder="生产环境 · DeepSeek"></label>
-      <label><span>协议类型</span><select name="protocol" data-protocol><option value="openai">OpenAI 兼容</option><option value="custom">自定义兼容</option></select></label>
-      <label class="wide"><span>Chat Completions 完整地址</span><input type="url" name="url" required placeholder="https://api.example.com/v1/chat/completions"></label>
-      <label><span>模型标识</span><input name="model" required placeholder="deepseek-chat"></label>
-      <label><span>API Key</span><input type="password" name="api_key" autocomplete="new-password" placeholder="sk-...（可留空）"></label>
+      <label><span class="field-title">目标名称 <button class="field-help" type="button" aria-label="目标名称说明" data-help="用于在运行记录和报告中识别这套接口配置，不会发送给模型服务。">?</button></span><input name="name" required placeholder="例如：生产环境 · DeepSeek"></label>
+      <label><span class="field-title">协议类型 <button class="field-help" type="button" aria-label="协议类型说明" data-help="OpenAI 兼容按 Chat Completions 标准发送；自定义兼容可额外读取顶层内容字段和命名 SSE 事件。">?</button></span><select name="protocol" data-protocol><option value="openai">OpenAI 兼容</option><option value="custom">自定义兼容</option></select></label>
+      <label class="wide"><span class="field-title">Chat Completions 完整地址 <button class="field-help" type="button" aria-label="接口地址说明" data-help="填写可直接接收 POST 请求的完整端点，不是控制台首页或只到 /v1 的基础地址。">?</button></span><input type="url" name="url" required placeholder="https://api.example.com/v1/chat/completions"></label>
+      <label><span class="field-title">模型标识 <button class="field-help" type="button" aria-label="模型标识说明" data-help="作为请求体中的 model 字段原样发送，必须与服务端已部署的模型名称一致。">?</button></span><input name="model" required placeholder="例如：deepseek-chat"></label>
+      <label><span class="field-title">API Key <button class="field-help" type="button" aria-label="API Key 说明" data-help="保存后仅在服务端用于 Authorization 请求头，页面和 JSON API 不会回显密钥。">?</button></span><input type="password" name="api_key" autocomplete="new-password" placeholder="sk-...（可留空）"></label>
       <details class="wide advanced-fields" data-target-advanced>
-        <summary><span>高级请求配置</span><small>自定义字段、额外 Header 和 Body</small></summary>
+        <summary><span>高级请求配置</span></summary>
         <div class="advanced-grid">
           <div class="wide custom-fields" data-custom-fields hidden>
-            <label><span>顶层内容字段</span><input name="custom_content_field" value="content" placeholder="content"></label>
-            <p>支持 reasoning、delta、done 与 error 命名 SSE 事件</p>
+            <label><span class="field-title">顶层内容字段 <button class="field-help" type="button" aria-label="顶层内容字段说明" data-help="自定义协议会将用户提示词写入请求体的这个顶层字段，同时仍保留标准 messages。">?</button></span><input name="custom_content_field" value="content" placeholder="content"></label>
           </div>
-          <label class="wide"><span>额外请求头 JSON</span><textarea name="extra_headers_json" rows="3" spellcheck="false" placeholder='{"X-Tenant-ID":"demo"}'></textarea></label>
-          <label class="wide"><span>额外请求体 JSON</span><textarea name="extra_body_json" rows="3" spellcheck="false" placeholder='{"response_format":{"type":"text"}}'></textarea></label>
+          <label class="wide"><span class="field-title">额外请求头 JSON <button class="field-help" type="button" aria-label="额外请求头说明" data-help="补充租户、应用或网关要求的请求头。系统管理的 Authorization 可能覆盖同名字段。">?</button></span><textarea name="extra_headers_json" rows="3" spellcheck="false" placeholder='{"X-Tenant-ID":"demo"}'></textarea></label>
+          <label class="wide"><span class="field-title">额外请求体 JSON <button class="field-help" type="button" aria-label="额外请求体说明" data-help="这些字段会与系统生成的请求体合并，用于传递供应商专有参数。">?</button></span><textarea name="extra_body_json" rows="3" spellcheck="false" placeholder='{"response_format":{"type":"text"}}'></textarea></label>
         </div>
       </details>
       <div class="wide form-actions"><button class="button primary" type="submit">保存推理目标 <span>→</span></button></div>
@@ -30,7 +24,7 @@
   </details>
 
   <div class="panel list-panel resource-list-panel">
-    <div class="panel-head"><div><h2>已登记目标</h2><p>用于发起性能观测的接口列表</p></div></div>
+    <div class="panel-head"><h2>已登记目标</h2></div>
     {{if .Targets}}
     <div class="card-list">
       {{range .Targets}}
@@ -41,7 +35,7 @@
       </article>
       {{end}}
     </div>
-    {{else}}<div class="empty"><b>暂无推理目标</b><span>在上方添加第一个 OpenAI 或自定义兼容接口</span></div>{{end}}
+    {{else}}<div class="empty"><b>暂无推理目标</b></div>{{end}}
   </div>
 </section>
 {{template "foot" .}}

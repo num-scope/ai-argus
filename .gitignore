@@ -4,9 +4,10 @@
 !.env.example
 .idea/
 .vscode/
+node_modules/
 
 bin/
-dist/
+/dist
 /server
 coverage.out
 *.test

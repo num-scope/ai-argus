@@ -7,17 +7,19 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#ffffff">
   <title>AI Argus — AI 性能观测平台</title>
+  <link rel="stylesheet" href="/static/dist/app.css?v=1">
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/pages.css">
   <link rel="stylesheet" href="/static/report.css">
-  <script defer src="/static/app.js"></script>
+  <script defer src="/static/dist/main.js?v=1"></script>
+  {{if .Charts}}<script defer src="/static/dist/charts.js?v=1"></script>{{end}}
 </head>
 <body>
 <div class="noise" aria-hidden="true"></div>
 <header class="site-header">
   <a class="brand" href="/" aria-label="AI Argus 首页">
     <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-    <span><b>AI Argus</b><small>Performance Intelligence</small></span>
+    <span><b>AI Argus</b></span>
   </a>
   <nav aria-label="主导航">
     <a class="{{if eq .Page "dashboard"}}active{{end}}" href="/">总览</a>
@@ -36,7 +38,6 @@
 </main>
 <footer class="site-footer">
   <span>AI Argus</span>
-  <span>OpenAI Compatible · Custom SSE</span>
 </footer>
 </body>
 </html>

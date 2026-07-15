@@ -16,6 +16,7 @@ type pageBase struct {
 	Page   string
 	Notice string
 	Error  string
+	Charts bool
 }
 
 type dashboardPage struct {

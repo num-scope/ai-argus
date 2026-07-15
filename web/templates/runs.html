@@ -1,21 +1,16 @@
 {{define "runs.html"}}
 {{template "head" .}}
-<section class="resource-header">
-  <div><h1>运行记录</h1><p>启动性能观测并查看历史结果。</p></div>
-  <span class="count-chip">{{len .Runs}} 次运行</span>
-</section>
-
 <section class="launch-panel panel compact-launch">
-  <div class="launch-copy"><h2>新建运行</h2><p>选择目标和场景即可开始</p></div>
+  <div class="launch-copy"><h2>新建运行</h2></div>
   <form method="post" action="/runs" class="launch-form">
-    <label><span>推理目标</span><select name="target_id" required><option value="">选择目标</option>{{range .Targets}}<option value="{{.ID}}">{{.Name}} · {{.Model}}</option>{{end}}</select></label>
-    <label><span>评测场景</span><select name="scenario_id" required><option value="">选择场景</option>{{range .Scenarios}}<option value="{{.ID}}">{{.Name}} · {{.Concurrency}} 并发</option>{{end}}</select></label>
+    <label><span class="field-title">推理目标 <button class="field-help" type="button" aria-label="推理目标说明" data-help="决定本次观测请求发往哪个接口，并使用该目标保存的协议、模型和鉴权配置。">?</button></span><select name="target_id" required><option value="">选择目标</option>{{range .Targets}}<option value="{{.ID}}">{{.Name}} · {{.Model}}</option>{{end}}</select></label>
+    <label><span class="field-title">评测场景 <button class="field-help" type="button" aria-label="评测场景说明" data-help="决定并发、请求数、提示词、生成参数、超时和重试策略；启动后会固化为运行快照。">?</button></span><select name="scenario_id" required><option value="">选择场景</option>{{range .Scenarios}}<option value="{{.ID}}">{{.Name}} · {{.Concurrency}} 并发</option>{{end}}</select></label>
     <button class="button primary" type="submit" {{if or (not .Targets) (not .Scenarios)}}disabled{{end}}>启动观测 <span>→</span></button>
   </form>
 </section>
 
 <section class="panel">
-  <div class="panel-head"><div><h2>历史运行</h2><p>点击任务编号查看实施日志</p></div></div>
+  <div class="panel-head"><h2>历史运行</h2></div>
   {{if .Runs}}
   <div class="table-wrap">
     <table class="runs-table">
@@ -35,7 +30,7 @@
       </tbody>
     </table>
   </div>
-  {{else}}<div class="empty"><b>暂无运行记录</b><span>在上方选择目标与场景，开始第一次观测</span></div>{{end}}
+  {{else}}<div class="empty"><b>暂无运行记录</b></div>{{end}}
 </section>
 {{template "foot" .}}
 {{end}}

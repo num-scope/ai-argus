@@ -1,37 +1,32 @@
 {{define "scenarios.html"}}
 {{template "head" .}}
-<section class="resource-header">
-  <div><h1>评测场景</h1><p>保存常用负载和提示词配置，运行时直接复用。</p></div>
-  <span class="count-chip">{{len .Scenarios}} 个场景</span>
-</section>
-
 <section class="resource-stack">
   <details class="panel create-disclosure" {{if not .Scenarios}}open{{end}}>
-    <summary><span><b>添加评测场景</b><small>并发上限 {{.MaxConcurrency}}</small></span><i aria-hidden="true">+</i></summary>
+    <summary><span><b>添加评测场景</b></span><i aria-hidden="true">+</i></summary>
     <form method="post" action="/scenarios" class="form-grid compact-form">
-      <label class="wide"><span>场景名称</span><input name="name" required placeholder="基线 · 100 并发 · 中文短问答"></label>
-      <label><span>并发数</span><input type="number" name="concurrency" value="10" min="1" max="{{.MaxConcurrency}}" required></label>
-      <label><span>正式请求总数</span><input type="number" name="total_requests" value="100" min="0" required><small>0 表示持续运行，需手动停止</small></label>
-      <label class="wide"><span>用户提示词 · 每行一个，循环使用</span><textarea name="prompts" rows="5" required>解释高并发限流的核心风险和处理动作
+      <label class="wide"><span class="field-title">场景名称 <button class="field-help" type="button" aria-label="场景名称说明" data-help="用于标记一组固定的负载和生成参数，建议写清并发量、任务类型和版本。">?</button></span><input name="name" required placeholder="例如：基线 · 100 并发 · 中文短问答"></label>
+      <label><span class="field-title">并发数 <button class="field-help" type="button" aria-label="并发数说明" data-help="同时在途的请求上限。数值越高，对连接池、网关和模型服务的压力越大。">?</button></span><input type="number" name="concurrency" value="10" min="1" max="{{.MaxConcurrency}}" required></label>
+      <label><span class="field-title">正式请求总数 <button class="field-help" type="button" aria-label="请求总数说明" data-help="预热结束后计入统计的请求数量；填 0 时会持续发送，直到手动停止。">?</button></span><input type="number" name="total_requests" value="100" min="0" required></label>
+      <label class="wide"><span class="field-title">用户提示词 <button class="field-help" type="button" aria-label="用户提示词说明" data-help="每行视为一条独立提示词；运行时按顺序循环使用，适合混合不同长度和任务类型。">?</button></span><textarea name="prompts" rows="5" required>解释高并发限流的核心风险和处理动作
 用三点说明连接池复用为什么重要
 给出一次 AI 接口超时的排查顺序</textarea></label>
       <details class="wide advanced-fields">
-        <summary><span>高级场景配置</span><small>生成参数、预热、超时和重试</small></summary>
+        <summary><span>高级场景配置</span></summary>
         <div class="advanced-grid">
-          <label><span>预热请求</span><input type="number" name="warmup_requests" value="0" min="0" required></label>
-          <label><span>渐进升压秒数</span><input type="number" name="ramp_up_seconds" value="0" min="0" max="86400" step="0.1" required></label>
-          <label><span>Temperature</span><input type="number" name="temperature" value="0.7" min="0" max="2" step="0.1" required></label>
-          <label><span>Top P</span><input type="number" name="top_p" value="1" min="0.01" max="1" step="0.01" required></label>
-          <label><span>最大输出 Token</span><input type="number" name="max_output_tokens" value="1024" min="1" required></label>
-          <label><span>Seed</span><input type="number" name="seed" placeholder="留空表示不指定"></label>
-          <label><span>完整响应超时（秒）</span><input type="number" name="timeout_seconds" value="0" min="0" max="86400" step="0.1" required><small>0 表示不限制</small></label>
-          <label><span>连接超时（秒）</span><input type="number" name="connect_timeout_seconds" value="10" min="0.1" max="300" step="0.1" required></label>
-          <label><span>最大重试次数</span><input type="number" name="max_retries" value="2" min="0" max="10" required></label>
-          <label><span>重试基础退避（秒）</span><input type="number" name="retry_base_delay_seconds" value="1.5" min="0" max="60" step="0.1" required></label>
-          <label class="wide"><span>系统提示词</span><textarea name="system_prompt" rows="3">你是一个简洁、可靠的中文助手</textarea></label>
+          <label><span class="field-title">预热请求 <button class="field-help" type="button" aria-label="预热请求说明" data-help="在正式统计前先发送的请求，用于建立连接、填充缓存和稳定实例状态；不计入报告。">?</button></span><input type="number" name="warmup_requests" value="0" min="0" required></label>
+          <label><span class="field-title">渐进升压秒数 <button class="field-help" type="button" aria-label="渐进升压说明" data-help="在指定时间内逐步增加到目标并发，减少瞬时洪峰，适合观察扩容和限流行为。">?</button></span><input type="number" name="ramp_up_seconds" value="0" min="0" max="86400" step="0.1" required></label>
+          <label><span class="field-title">Temperature <button class="field-help" type="button" aria-label="Temperature 说明" data-help="控制采样随机性；较低更稳定，较高更多样。性能对比时应保持该值一致。">?</button></span><input type="number" name="temperature" value="0.7" min="0" max="2" step="0.1" required></label>
+          <label><span class="field-title">Top P <button class="field-help" type="button" aria-label="Top P 说明" data-help="核采样阈值，只从累计概率达到该值的候选词中采样；通常只调整它或 Temperature 之一。">?</button></span><input type="number" name="top_p" value="1" min="0.01" max="1" step="0.01" required></label>
+          <label><span class="field-title">最大输出 Token <button class="field-help" type="button" aria-label="最大输出 Token 说明" data-help="单次响应允许生成的 Token 上限，会影响测试时长、成本和 TPOT 样本长度。">?</button></span><input type="number" name="max_output_tokens" value="1024" min="1" required></label>
+          <label><span class="field-title">Seed <button class="field-help" type="button" aria-label="Seed 说明" data-help="供应商支持时可提高多次测试的可重复性，但不保证跨模型或跨版本结果完全一致。">?</button></span><input type="number" name="seed" placeholder="留空表示不指定"></label>
+          <label><span class="field-title">完整响应超时（秒） <button class="field-help" type="button" aria-label="完整响应超时说明" data-help="从发起请求到完整流结束的最长等待时间，超时会记为失败并按重试策略处理。">?</button></span><input type="number" name="timeout_seconds" value="0" min="0" max="86400" step="0.1" required></label>
+          <label><span class="field-title">连接超时（秒） <button class="field-help" type="button" aria-label="连接超时说明" data-help="仅限制 TCP/TLS 建连阶段，不包含服务端生成和流式返回时间。">?</button></span><input type="number" name="connect_timeout_seconds" value="10" min="0.1" max="300" step="0.1" required></label>
+          <label><span class="field-title">最大重试次数 <button class="field-help" type="button" aria-label="最大重试次数说明" data-help="可重试错误发生后允许的额外尝试次数；重试会增加总请求量和延迟。">?</button></span><input type="number" name="max_retries" value="2" min="0" max="10" required></label>
+          <label><span class="field-title">重试基础退避（秒） <button class="field-help" type="button" aria-label="重试退避说明" data-help="首次重试前的等待基数，后续按指数增加，用于避免持续冲击故障中的服务。">?</button></span><input type="number" name="retry_base_delay_seconds" value="1.5" min="0" max="60" step="0.1" required></label>
+          <label class="wide"><span class="field-title">系统提示词 <button class="field-help" type="button" aria-label="系统提示词说明" data-help="作为 system 消息随每次请求发送，用于固定角色和回答约束；留空则不发送。">?</button></span><textarea name="system_prompt" rows="3">你是一个简洁、可靠的中文助手</textarea></label>
           <div class="wide check-row">
-            <label class="check"><input type="checkbox" name="include_usage" value="true" checked><span>请求 Usage 统计</span></label>
-            <label class="check"><input type="checkbox" name="save_response_preview" value="true" checked><span>保存回答预览</span></label>
+            <label class="check"><input type="checkbox" name="include_usage" value="true" checked><span class="field-title">请求 Usage 统计 <button class="field-help" type="button" aria-label="Usage 统计说明" data-help="要求接口返回输入、输出和总 Token，用于计算 Token 画像与生成速率。">?</button></span></label>
+            <label class="check"><input type="checkbox" name="save_response_preview" value="true" checked><span class="field-title">保存回答预览 <button class="field-help" type="button" aria-label="回答预览说明" data-help="保存部分响应文本用于排障；如提示词或回答可能包含敏感信息，建议关闭。">?</button></span></label>
           </div>
         </div>
       </details>
@@ -40,7 +35,7 @@
   </details>
 
   <div class="panel list-panel resource-list-panel">
-    <div class="panel-head"><div><h2>场景库</h2><p>可直接用于新运行的评测配置</p></div></div>
+    <div class="panel-head"><h2>场景库</h2></div>
     {{if .Scenarios}}
     <div class="card-list">
       {{range .Scenarios}}
@@ -52,7 +47,7 @@
       </article>
       {{end}}
     </div>
-    {{else}}<div class="empty"><b>暂无评测场景</b><span>在上方创建第一份可复用性能蓝图</span></div>{{end}}
+    {{else}}<div class="empty"><b>暂无评测场景</b></div>{{end}}
   </div>
 </section>
 {{template "foot" .}}

@@ -13,7 +13,7 @@ func TestRouterLoadsTemplatesAndHealthRoute(t *testing.T) {
 		t.Fatalf("create router: %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/health", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}

@@ -1,36 +1,17 @@
 {{define "dashboard.html"}}
 {{template "head" .}}
-<section class="hero">
-  <div>
-    <p class="eyebrow"><span></span>AI PERFORMANCE OBSERVABILITY</p>
-    <h1>让每一次 AI 推理<br><em>都有据可查</em></h1>
-    <p class="hero-copy">从首 Token 到完整响应，从并发吞吐到协议异常。用一套清晰、可复用的工作流持续衡量模型服务。</p>
-    <div class="hero-actions">
-      <a class="button primary" href="/runs">开始观测 <span>→</span></a>
-      <a class="button ghost" href="/targets">配置推理目标</a>
-    </div>
-  </div>
-  <div class="radar" aria-label="观测雷达装饰">
-    <div class="radar-ring r1"></div><div class="radar-ring r2"></div><div class="radar-ring r3"></div>
-    <div class="radar-axis x"></div><div class="radar-axis y"></div><div class="radar-sweep"></div>
-    <span class="radar-dot d1"></span><span class="radar-dot d2"></span><span class="radar-dot d3"></span>
-    <div class="radar-label">LIVE SIGNAL<br><b>READY</b></div>
-  </div>
-</section>
-
 <section class="metric-strip">
-  <article><span>推理目标</span><strong>{{.Dashboard.TargetCount}}</strong><small>TARGETS</small></article>
-  <article><span>评测场景</span><strong>{{.Dashboard.ScenarioCount}}</strong><small>SCENARIOS</small></article>
-  <article><span>累计运行</span><strong>{{.Dashboard.RunCount}}</strong><small>RUNS</small></article>
-  <article class="accent"><span>活跃任务</span><strong>{{.Dashboard.ActiveRunCount}}</strong><small>LIVE NOW</small></article>
-  <article><span>最近成功率</span><strong>{{percent .Dashboard.LastSuccessRate}}</strong><small>SUCCESS</small></article>
-  <article><span>最近吞吐</span><strong>{{decimal .Dashboard.LastRPS}}</strong><small>REQ / SEC</small></article>
+  <article><span>推理目标</span><strong>{{.Dashboard.TargetCount}}</strong></article>
+  <article><span>评测场景</span><strong>{{.Dashboard.ScenarioCount}}</strong></article>
+  <article><span>累计运行</span><strong>{{.Dashboard.RunCount}}</strong></article>
+  <article class="accent"><span>活跃任务</span><strong>{{.Dashboard.ActiveRunCount}}</strong></article>
+  <article><span>最近成功率</span><strong>{{percent .Dashboard.LastSuccessRate}}</strong></article>
+  <article><span>最近吞吐</span><strong>{{decimal .Dashboard.LastRPS}}</strong></article>
 </section>
 
-<section class="section-grid">
-  <div class="panel span-2">
+<section class="panel">
     <div class="panel-head">
-      <div><p class="kicker">RECENT OBSERVATIONS</p><h2>最近运行</h2></div>
+      <h2>最近运行</h2>
       <a href="/runs">查看全部 →</a>
     </div>
     {{if .Dashboard.RecentRuns}}
@@ -52,18 +33,8 @@
       </table>
     </div>
     {{else}}
-    <div class="empty"><b>观测阵列尚未启动</b><span>配置目标与场景后，第一份性能信号会出现在这里</span></div>
+    <div class="empty"><b>暂无运行记录</b></div>
     {{end}}
-  </div>
-  <aside class="panel field-notes">
-    <p class="kicker">SIGNAL COVERAGE</p><h2>观测维度</h2>
-    <ul>
-      <li><span>01</span><div><b>延迟剖面</b><small>E2E · TTFT · TPOT · Queue · P50/P95/P99</small></div></li>
-      <li><span>02</span><div><b>吞吐能力</b><small>RPS · 输出 Token/s · 并发完成率</small></div></li>
-      <li><span>03</span><div><b>可靠性</b><small>状态码 · 重试 · 流完整性 · 业务错误</small></div></li>
-      <li><span>04</span><div><b>成本线索</b><small>输入 / 输出 / 总 Token 与 Usage 覆盖</small></div></li>
-    </ul>
-  </aside>
 </section>
 {{template "foot" .}}
 {{end}}

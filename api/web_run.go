@@ -75,7 +75,7 @@ func renderRun(c *gin.Context, templateName, page string) {
 		return
 	}
 	c.HTML(http.StatusOK, templateName, runPage{
-		pageBase: pageBase{Page: page, Notice: c.Query("notice"), Error: c.Query("error")},
+		pageBase: pageBase{Page: page, Notice: c.Query("notice"), Error: c.Query("error"), Charts: templateName == "run_detail.html"},
 		Detail:   detail,
 	})
 }

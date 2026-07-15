@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"io/fs"
 	"time"
+
+	"github.com/xtj/ai-argus/internal/dto"
 )
 
 //go:embed templates/*.html static/*
@@ -44,6 +46,45 @@ func Templates() (*template.Template, error) {
 				return 0
 			}
 			return *value
+		},
+		"maxFloat": func(values ...float64) float64 {
+			maximum := 1.0
+			for _, value := range values {
+				if value > maximum {
+					maximum = value
+				}
+			}
+			return maximum
+		},
+		"maxInt": func(values ...int) int {
+			maximum := 1
+			for _, value := range values {
+				if value > maximum {
+					maximum = value
+				}
+			}
+			return maximum
+		},
+		"ratio": func(value, total float64) float64 {
+			if total <= 0 {
+				return 0
+			}
+			return min(max(value/total*100, 0), 100)
+		},
+		"ratioInt": func(value, total int) float64 {
+			if total <= 0 {
+				return 0
+			}
+			return min(max(float64(value)/float64(total)*100, 0), 100)
+		},
+		"resultMaxMS": func(results []dto.RequestResultResponse) float64 {
+			maximum := 1.0
+			for _, result := range results {
+				if result.ElapsedMS > maximum {
+					maximum = result.ElapsedMS
+				}
+			}
+			return maximum
 		},
 		"joinLines": func(values []string) string {
 			result := ""

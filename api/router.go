@@ -45,7 +45,7 @@ func NewRouter() (*gin.Engine, error) {
 	apiGroup.GET("/runs/:id", v1.GetRun)
 	apiGroup.POST("/runs/:id/cancel", v1.CancelRun)
 
-	router.GET("/healthz", func(c *gin.Context) {
+	router.GET("/health", func(c *gin.Context) {
 		response.Success(c, gin.H{"status": "up"})
 	})
 	return router, nil

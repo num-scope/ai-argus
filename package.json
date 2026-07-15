@@ -1,0 +1,34 @@
+{
+  "name": "ai-argus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend build for the AI Argus server-rendered UI.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build:css && npm run build:js",
+    "build:css": "tailwindcss -i web/frontend/styles.css -o web/static/dist/app.css --minify",
+    "build:js": "esbuild web/frontend/main.js web/frontend/charts.js --bundle --minify --format=iife --target=es2020 --outdir=web/static/dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/num-scope/ai-argus.git"
+  },
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/num-scope/ai-argus/issues"
+  },
+  "homepage": "https://github.com/num-scope/ai-argus#readme",
+  "dependencies": {
+    "echarts": "^6.1.0",
+    "flowbite": "^4.0.2",
+    "htmx.org": "^2.0.10"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.2",
+    "esbuild": "^0.28.1",
+    "tailwindcss": "^4.3.2"
+  }
+}

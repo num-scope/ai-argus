@@ -1,7 +1,8 @@
 {{define "run_detail.html"}}
 {{template "head" .}}
-<section class="run-heading" data-run-page data-run-id="{{.Detail.Run.ID}}" data-run-status="{{.Detail.Run.Status}}">
-  <div><a class="back-link" href="/runs">← 返回任务档案</a><p class="eyebrow">LIVE OBSERVATION / RUN-{{printf "%04d" .Detail.Run.ID}}</p><h1>{{.Detail.Run.TargetName}} <span>×</span> {{.Detail.Run.ScenarioName}}</h1><p>{{.Detail.Run.Protocol}} / {{.Detail.Run.Model}} · 创建于 {{formatTime .Detail.Run.CreatedAt}}</p></div>
+<div id="run-live" data-run-content {{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}hx-get="/runs/{{.Detail.Run.ID}}" hx-trigger="every 2s" hx-select="#run-live" hx-target="this" hx-swap="outerHTML"{{end}}>
+<section class="run-heading">
+  <div><a class="back-link" href="/runs">← 返回任务档案</a><h1>{{.Detail.Run.TargetName}} <span>×</span> {{.Detail.Run.ScenarioName}}</h1><p>{{.Detail.Run.Protocol}} / {{.Detail.Run.Model}} · 创建于 {{formatTime .Detail.Run.CreatedAt}}</p></div>
   <div class="run-actions">{{template "run-status" .Detail.Run.Status}}<a class="button ghost" href="/reports/{{.Detail.Run.ID}}">查看报告</a>{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}<form method="post" action="/runs/{{.Detail.Run.ID}}/cancel"><button class="button danger" type="submit">停止任务</button></form>{{end}}</div>
 </section>
 
@@ -14,13 +15,36 @@
   <article class="signal-card"><span>成功率</span><strong>{{percent .Detail.Summary.SuccessRate}}</strong><div class="signal-line"></div></article>
 </section>
 
+{{if .Detail.Results}}
+{{$chartMax := resultMaxMS .Detail.Results}}
+{{$chartCount := len .Detail.Results}}
+<section class="telemetry-grid" aria-label="请求性能图表">
+  <article class="panel request-trace">
+    <div class="panel-head"><h2>最近请求延迟轨迹</h2><span class="chart-scale">峰值 {{ms $chartMax}}</span></div>
+    <div class="trace-chart" data-request-chart role="img" aria-label="最近 {{$chartCount}} 次请求的端到端耗时柱状图">
+      {{range .Detail.Results}}<span hidden data-request-point data-index="{{.RequestIndex}}" data-elapsed="{{.ElapsedMS}}" data-ok="{{.OK}}"></span>{{end}}
+    </div>
+    <div class="trace-legend"><span><i class="ok"></i>成功请求</span><span><i class="error"></i>失败请求</span><span>展示最近 {{$chartCount}} 条</span></div>
+  </article>
+  <aside class="panel latency-readout">
+    <div class="panel-head"><h2>关键延迟对照</h2></div>
+    <div class="latency-bars">
+      <div><div><span>首词元 TTFT</span><b>{{ms .Detail.Summary.TTFT.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TTFT.P95}}">{{ms .Detail.Summary.TTFT.P95}}</meter><small>P95 · {{.Detail.Summary.TTFT.Samples}} 样本</small></div>
+      <div><div><span>每词元 TPOT</span><b>{{ms .Detail.Summary.TPOT.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TPOT.P95}}">{{ms .Detail.Summary.TPOT.P95}}</meter><small>P95 · {{.Detail.Summary.TPOT.Samples}} 样本</small></div>
+      <div><div><span>排队 Queue</span><b>{{ms .Detail.Summary.Queue.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.Queue.P95}}">{{ms .Detail.Summary.Queue.P95}}</meter><small>P95 · {{.Detail.Summary.Queue.Samples}} 样本</small></div>
+    </div>
+  </aside>
+</section>
+{{end}}
+
 <section class="panel">
-  <div class="panel-head"><div><p class="kicker">REQUEST TELEMETRY</p><h2>请求实施日志</h2></div><span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}页面每 2 秒刷新{{else}}最近 100 条{{end}}</span></div>
+  <div class="panel-head"><h2>请求实施日志</h2><span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}页面每 2 秒刷新{{else}}最近 100 条{{end}}</span></div>
   {{if .Detail.Results}}
   <div class="table-wrap log-table"><table><thead><tr><th>#</th><th>结果</th><th>HTTP</th><th>E2E</th><th>TTFT</th><th>TPOT</th><th>Token</th><th>尝试</th><th>提示 / 回答 / 错误</th></tr></thead><tbody>
   {{range .Detail.Results}}<tr><td class="mono">{{printf "%04d" .RequestIndex}}</td><td>{{if .OK}}<span class="result-ok">OK</span>{{else}}<span class="result-bad">ERR</span>{{end}}</td><td class="mono">{{if .Status}}{{derefInt .Status}}{{else}}-{{end}}</td><td class="mono">{{ms .ElapsedMS}}</td><td class="mono">{{if .TTFTMS}}{{ms (derefFloat .TTFTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .TPOTMS}}{{ms (derefFloat .TPOTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .CompletionTokens}}{{derefInt .CompletionTokens}}{{else}}-{{end}}</td><td class="mono">{{.Attempts}}</td><td class="log-copy"><b>问：</b>{{.Prompt}}{{if .ResponsePreview}}<br><b>答：</b>{{.ResponsePreview}}{{end}}{{if .ErrorMessage}}<br><b class="error-copy">错：</b>{{.ErrorMessage}}{{end}}</td></tr>{{end}}
   </tbody></table></div>
-  {{else}}<div class="empty pulse-empty"><b>等待第一束响应信号</b><span>任务开始后，逐请求观测日志会持续写入这里</span></div>{{end}}
+  {{else}}<div class="empty pulse-empty"><b>暂无请求日志</b></div>{{end}}
 </section>
+</div>
 {{template "foot" .}}
 {{end}}
