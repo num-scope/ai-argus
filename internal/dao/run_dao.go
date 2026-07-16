@@ -98,6 +98,12 @@ func ListRequestResults(ctx context.Context, runID int64, limit int) ([]model.Re
 	return results, err
 }
 
+func ListRequestResultsASC(ctx context.Context, runID int64) ([]model.RequestResult, error) {
+	var results []model.RequestResult
+	err := database.DB.WithContext(ctx).Where("run_id = ?", runID).Order("request_index ASC").Find(&results).Error
+	return results, err
+}
+
 func activeRunStatuses() []string {
 	return []string{model.RunStatusQueued, model.RunStatusWarming, model.RunStatusRunning}
 }

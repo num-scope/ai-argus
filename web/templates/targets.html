@@ -2,7 +2,7 @@
 {{template "head" .}}
 <section class="resource-stack">
   <details class="panel create-disclosure" {{if not .Targets}}open{{end}}>
-    <summary><span><b>添加推理目标</b></span><i aria-hidden="true">+</i></summary>
+    <summary><span><b>添加推理目标</b><small>接口地址、模型与协议配置</small></span><i aria-hidden="true">+</i></summary>
     <form method="post" action="/targets" class="form-grid compact-form" data-target-form>
       <label><span class="field-title">目标名称 <button class="field-help" type="button" aria-label="目标名称说明" data-help="用于在运行记录和报告中识别这套接口配置，不会发送给模型服务。">?</button></span><input name="name" required placeholder="例如：生产环境 · DeepSeek"></label>
       <label><span class="field-title">协议类型 <button class="field-help" type="button" aria-label="协议类型说明" data-help="OpenAI 兼容按 Chat Completions 标准发送；自定义兼容可额外读取顶层内容字段和命名 SSE 事件。">?</button></span><select name="protocol" data-protocol><option value="openai">OpenAI 兼容</option><option value="custom">自定义兼容</option></select></label>
@@ -19,23 +19,41 @@
           <label class="wide"><span class="field-title">额外请求体 JSON <button class="field-help" type="button" aria-label="额外请求体说明" data-help="这些字段会与系统生成的请求体合并，用于传递供应商专有参数。">?</button></span><textarea name="extra_body_json" rows="3" spellcheck="false" placeholder='{"response_format":{"type":"text"}}'></textarea></label>
         </div>
       </details>
-      <div class="wide form-actions"><button class="button primary" type="submit">保存推理目标 <span>→</span></button></div>
+      <div class="wide form-actions"><button class="button primary" type="submit">保存目标</button></div>
     </form>
   </details>
 
   <div class="panel list-panel resource-list-panel">
-    <div class="panel-head"><h2>已登记目标</h2></div>
+    <div class="panel-head">
+      <h2>已登记目标</h2>
+      {{if .Targets}}<span class="panel-count">{{len .Targets}}</span>{{end}}
+    </div>
     {{if .Targets}}
     <div class="card-list">
       {{range .Targets}}
       <article class="target-card">
-        <div class="protocol-badge {{.Protocol}}">{{if eq .Protocol "openai"}}OA{{else}}CX{{end}}</div>
-        <div class="card-main"><h3>{{.Name}}</h3><p>{{.URL}}</p><div class="tags"><span>{{.Protocol}}</span><span>{{.Model}}</span>{{if .HasAPIKey}}<span>KEY SET</span>{{end}}</div></div>
-        <form method="post" action="/targets/{{.ID}}/delete" onsubmit="return confirm('确认删除这个推理目标？')"><button class="icon-button" title="删除" aria-label="删除">×</button></form>
+        <div class="protocol-badge {{.Protocol}}" title="{{.Protocol}}">{{if eq .Protocol "openai"}}OA{{else}}CX{{end}}</div>
+        <div class="card-main">
+          <h3>{{.Name}}</h3>
+          <p title="{{.URL}}">{{.URL}}</p>
+          <div class="tags">
+            <span>{{.Protocol}}</span>
+            <span>{{.Model}}</span>
+            {{if .HasAPIKey}}<span>KEY SET</span>{{else}}<span>NO KEY</span>{{end}}
+          </div>
+        </div>
+        <form method="post" action="/targets/{{.ID}}/delete" onsubmit="return confirm('确认删除这个推理目标？')">
+          <button class="icon-button" type="submit" title="删除" aria-label="删除">×</button>
+        </form>
       </article>
       {{end}}
     </div>
-    {{else}}<div class="empty"><b>暂无推理目标</b></div>{{end}}
+    {{else}}
+    <div class="empty">
+      <b>暂无推理目标</b>
+      <span>添加接口目标后即可用于压测与观测。</span>
+    </div>
+    {{end}}
   </div>
 </section>
 {{template "foot" .}}

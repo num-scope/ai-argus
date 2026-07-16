@@ -37,6 +37,8 @@ type Config struct {
 	MaxRetries            int               `json:"max_retries"`
 	RetryBaseDelaySeconds float64           `json:"retry_base_delay_seconds"`
 	SaveResponsePreview   bool              `json:"save_response_preview"`
+	SaveResponseBody      bool              `json:"save_response_body"`
+	ResponsePreviewLength int               `json:"response_preview_length"`
 }
 
 type Result struct {
@@ -123,7 +125,7 @@ func (c *Client) Execute(ctx context.Context, index int, prompt string, queue ti
 			if response.streamed && !response.completed {
 				lastErr = errors.New("流式响应未收到 [DONE] 或 finish_reason 完成标记")
 			} else {
-				return buildResult(index, prompt, attempts, time.Since(startedAt), queue, response, nil, c.config.SaveResponsePreview)
+				return buildResult(index, prompt, attempts, time.Since(startedAt), queue, response, nil, c.config)
 			}
 		} else if err != nil {
 			lastErr = err
@@ -143,7 +145,7 @@ func (c *Client) Execute(ctx context.Context, index int, prompt string, queue ti
 		}
 	}
 
-	return buildResult(index, prompt, attempts, time.Since(startedAt), queue, lastResponse, lastErr, c.config.SaveResponsePreview)
+	return buildResult(index, prompt, attempts, time.Since(startedAt), queue, lastResponse, lastErr, c.config)
 }
 
 func retryDelay(baseSeconds float64, attempt int) time.Duration {
@@ -213,7 +215,10 @@ func (c *Client) buildPayload(prompt string) map[string]any {
 		"messages":    messages,
 		"temperature": c.config.Temperature,
 		"top_p":       c.config.TopP,
-		"max_tokens":  c.config.MaxOutputTokens,
+	}
+	// 0 means do not constrain generation length (provider default).
+	if c.config.MaxOutputTokens > 0 {
+		payload["max_tokens"] = c.config.MaxOutputTokens
 	}
 	if c.config.Seed != nil {
 		payload["seed"] = *c.config.Seed
@@ -240,7 +245,7 @@ func (c *Client) buildPayload(prompt string) map[string]any {
 	return payload
 }
 
-func buildResult(index int, prompt string, attempts int, elapsed, queue time.Duration, response *responseData, err error, savePreview bool) Result {
+func buildResult(index int, prompt string, attempts int, elapsed, queue time.Duration, response *responseData, err error, cfg Config) Result {
 	result := Result{Index: index, Prompt: prompt, Attempts: attempts, ElapsedMS: milliseconds(elapsed), QueueMS: milliseconds(queue)}
 	if response != nil {
 		status := response.status
@@ -260,8 +265,14 @@ func buildResult(index int, prompt string, attempts int, elapsed, queue time.Dur
 			value := max(result.RequestMS-*result.TTFTMS, 0) / float64(*result.CompletionTokens-1)
 			result.TPOTMS = &value
 		}
-		if savePreview {
-			result.ResponsePreview = compact(response.message, 500)
+		if cfg.SaveResponseBody {
+			result.ResponsePreview = compact(response.message, 32000)
+		} else if cfg.SaveResponsePreview {
+			limit := cfg.ResponsePreviewLength
+			if limit <= 0 {
+				limit = 100
+			}
+			result.ResponsePreview = compact(response.message, limit)
 		}
 	}
 	if err != nil {

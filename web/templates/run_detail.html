@@ -1,50 +1,286 @@
 {{define "run_detail.html"}}
 {{template "head" .}}
 <div id="run-live" data-run-content {{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}hx-get="/runs/{{.Detail.Run.ID}}" hx-trigger="every 2s" hx-select="#run-live" hx-target="this" hx-swap="outerHTML"{{end}}>
-<section class="run-heading">
-  <div><a class="back-link" href="/runs">← 返回任务档案</a><h1>{{.Detail.Run.TargetName}} <span>×</span> {{.Detail.Run.ScenarioName}}</h1><p>{{.Detail.Run.Protocol}} / {{.Detail.Run.Model}} · 创建于 {{formatTime .Detail.Run.CreatedAt}}</p></div>
-  <div class="run-actions">{{template "run-status" .Detail.Run.Status}}<a class="button ghost" href="/reports/{{.Detail.Run.ID}}">查看报告</a>{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}<form method="post" action="/runs/{{.Detail.Run.ID}}/cancel"><button class="button danger" type="submit">停止任务</button></form>{{end}}</div>
-</section>
 
-{{if .Detail.Run.ErrorMessage}}<div class="flash error">{{.Detail.Run.ErrorMessage}}</div>{{end}}
-<section class="live-grid">
-  <article class="signal-card"><span>完成请求</span><strong>{{.Detail.Run.Completed}}{{if gt .Detail.Run.Planned 0}}<small>/ {{.Detail.Run.Planned}}</small>{{else}}<small>/ ∞</small>{{end}}</strong><div class="signal-line"></div></article>
-  <article class="signal-card good-card"><span>成功</span><strong>{{.Detail.Run.Succeeded}}</strong><div class="signal-line"></div></article>
-  <article class="signal-card bad-card"><span>失败</span><strong>{{.Detail.Run.Failed}}</strong><div class="signal-line"></div></article>
-  <article class="signal-card"><span>当前 RPS</span><strong>{{decimal .Detail.Summary.RPS}}</strong><div class="signal-line"></div></article>
-  <article class="signal-card"><span>成功率</span><strong>{{percent .Detail.Summary.SuccessRate}}</strong><div class="signal-line"></div></article>
-</section>
-
-{{if .Detail.Results}}
-{{$chartMax := resultMaxMS .Detail.Results}}
-{{$chartCount := len .Detail.Results}}
-<section class="telemetry-grid" aria-label="请求性能图表">
-  <article class="panel request-trace">
-    <div class="panel-head"><h2>最近请求延迟轨迹</h2><span class="chart-scale">峰值 {{ms $chartMax}}</span></div>
-    <div class="trace-chart" data-request-chart role="img" aria-label="最近 {{$chartCount}} 次请求的端到端耗时柱状图">
-      {{range .Detail.Results}}<span hidden data-request-point data-index="{{.RequestIndex}}" data-elapsed="{{.ElapsedMS}}" data-ok="{{.OK}}"></span>{{end}}
+<article class="report-doc panel run-merged">
+  <header class="report-doc-head">
+    <div class="report-doc-title">
+      <a class="back-link no-print" href="/runs">← 返回运行记录</a>
+      <h1>{{.Detail.Run.TargetName}} <span>×</span> {{.Detail.Run.ScenarioName}}</h1>
+      <p class="report-meta-line">{{.Detail.Run.Protocol}} · {{.Detail.Run.Model}} · {{formatTime .Detail.Run.CreatedAt}}</p>
     </div>
-    <div class="trace-legend"><span><i class="ok"></i>成功请求</span><span><i class="error"></i>失败请求</span><span>展示最近 {{$chartCount}} 条</span></div>
-  </article>
-  <aside class="panel latency-readout">
-    <div class="panel-head"><h2>关键延迟对照</h2></div>
-    <div class="latency-bars">
-      <div><div><span>首词元 TTFT</span><b>{{ms .Detail.Summary.TTFT.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TTFT.P95}}">{{ms .Detail.Summary.TTFT.P95}}</meter><small>P95 · {{.Detail.Summary.TTFT.Samples}} 样本</small></div>
-      <div><div><span>每词元 TPOT</span><b>{{ms .Detail.Summary.TPOT.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TPOT.P95}}">{{ms .Detail.Summary.TPOT.P95}}</meter><small>P95 · {{.Detail.Summary.TPOT.Samples}} 样本</small></div>
-      <div><div><span>排队 Queue</span><b>{{ms .Detail.Summary.Queue.P95}}</b></div><meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.Queue.P95}}">{{ms .Detail.Summary.Queue.P95}}</meter><small>P95 · {{.Detail.Summary.Queue.Samples}} 样本</small></div>
+    <div class="report-doc-aside">
+      <div class="report-status">
+        <span>状态</span>
+        <strong>{{template "run-status" .Detail.Run.Status}}</strong>
+      </div>
+      <div class="report-doc-actions no-print">
+        <a class="button ghost" href="/runs/{{.Detail.Run.ID}}/export">导出 JSONL</a>
+        <button class="button ghost" type="button" onclick="window.print()">导出 PDF</button>
+        {{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}
+        <form method="post" action="/runs/{{.Detail.Run.ID}}/cancel"><button class="button danger" type="submit">停止任务</button></form>
+        {{end}}
+      </div>
     </div>
-  </aside>
-</section>
-{{end}}
+  </header>
 
-<section class="panel">
-  <div class="panel-head"><h2>请求实施日志</h2><span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}页面每 2 秒刷新{{else}}最近 100 条{{end}}</span></div>
+  {{if .Detail.Run.ErrorMessage}}<div class="flash error run-merged-flash">{{.Detail.Run.ErrorMessage}}</div>{{end}}
+
+  <section class="report-kpis" aria-label="核心指标">
+    <div>
+      <span>完成请求</span>
+      <strong>{{.Detail.Run.Completed}}{{if gt .Detail.Run.Planned 0}}<small class="kpi-sub"> / {{.Detail.Run.Planned}}</small>{{end}}</strong>
+      <small>{{.Detail.Run.Succeeded}} 成功 · {{.Detail.Run.Failed}} 失败</small>
+    </div>
+    <div>
+      <span class="term-label">成功率 <button class="field-help" type="button" aria-label="成功率说明" data-help="Success Rate，成功请求占总请求的比例。">?</button></span>
+      <strong>{{percent .Detail.Summary.SuccessRate}}</strong>
+    </div>
+    <div>
+      <span class="term-label">RPS <button class="field-help" type="button" aria-label="RPS 说明" data-help="Requests Per Second，每秒完成的逻辑请求数。">?</button></span>
+      <strong>{{decimal .Detail.Summary.RPS}}</strong>
+      <small>请求 / 秒</small>
+    </div>
+    <div>
+      <span class="term-label">总耗时 <button class="field-help" type="button" aria-label="总耗时说明" data-help="正式阶段墙钟耗时，按量级自动显示为毫秒 / 秒 / 分钟 / 小时。">?</button></span>
+      <strong>{{formatDuration .Detail.Summary.DurationSeconds}}</strong>
+    </div>
+  </section>
+
   {{if .Detail.Results}}
-  <div class="table-wrap log-table"><table><thead><tr><th>#</th><th>结果</th><th>HTTP</th><th>E2E</th><th>TTFT</th><th>TPOT</th><th>Token</th><th>尝试</th><th>提示 / 回答 / 错误</th></tr></thead><tbody>
-  {{range .Detail.Results}}<tr><td class="mono">{{printf "%04d" .RequestIndex}}</td><td>{{if .OK}}<span class="result-ok">OK</span>{{else}}<span class="result-bad">ERR</span>{{end}}</td><td class="mono">{{if .Status}}{{derefInt .Status}}{{else}}-{{end}}</td><td class="mono">{{ms .ElapsedMS}}</td><td class="mono">{{if .TTFTMS}}{{ms (derefFloat .TTFTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .TPOTMS}}{{ms (derefFloat .TPOTMS)}}{{else}}-{{end}}</td><td class="mono">{{if .CompletionTokens}}{{derefInt .CompletionTokens}}{{else}}-{{end}}</td><td class="mono">{{.Attempts}}</td><td class="log-copy"><b>问：</b>{{.Prompt}}{{if .ResponsePreview}}<br><b>答：</b>{{.ResponsePreview}}{{end}}{{if .ErrorMessage}}<br><b class="error-copy">错：</b>{{.ErrorMessage}}{{end}}</td></tr>{{end}}
-  </tbody></table></div>
-  {{else}}<div class="empty pulse-empty"><b>暂无请求日志</b></div>{{end}}
-</section>
+  {{$chartResults := recentResults .Detail.Results 100}}
+  {{$chartMax := resultMaxMS $chartResults}}
+  {{$chartCount := len $chartResults}}
+  {{$logCount := len .Detail.Results}}
+  <section class="report-block live-telemetry">
+    <div class="report-block-head">
+      <h2>实时观测</h2>
+      <span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}每 2 秒刷新{{else}}轨迹最近 {{$chartCount}} 条{{end}}</span>
+    </div>
+    <div class="telemetry-grid flush">
+      <article class="request-trace">
+        <div class="inline-head">
+          <h3>请求延迟轨迹</h3>
+          <span class="chart-scale">峰值 {{ms $chartMax}}</span>
+        </div>
+        <div class="trace-chart" data-request-chart role="img" aria-label="最近 {{$chartCount}} 次请求的端到端耗时柱状图">
+          {{range $chartResults}}<span hidden data-request-point data-index="{{.RequestIndex}}" data-elapsed="{{.ElapsedMS}}" data-ok="{{.OK}}"></span>{{end}}
+        </div>
+        <div class="trace-legend"><span><i class="ok"></i>成功</span><span><i class="error"></i>失败</span><span>最近 {{$chartCount}} 条</span></div>
+      </article>
+      <aside class="latency-readout">
+        <div class="inline-head">
+          <h3><span class="term-label">关键延迟 P95 <button class="field-help" type="button" aria-label="P95 说明" data-help="第 95 百分位：95% 的请求延迟不超过该值。">?</button></span></h3>
+        </div>
+        <div class="latency-bars">
+          <div>
+            <div>
+              <span class="term-label">TTFT <button class="field-help" type="button" aria-label="TTFT 说明" data-help="首词元延迟：发起到首个内容 Token 的时间。">?</button></span>
+              <b>{{ms .Detail.Summary.TTFT.P95}}</b>
+            </div>
+            <meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TTFT.P95}}">{{ms .Detail.Summary.TTFT.P95}}</meter>
+            <small>{{.Detail.Summary.TTFT.Samples}} 样本</small>
+          </div>
+          <div>
+            <div>
+              <span class="term-label">TPOT <button class="field-help" type="button" aria-label="TPOT 说明" data-help="每输出词元耗时：生成阶段每个输出 Token 的平均间隔。">?</button></span>
+              <b>{{ms .Detail.Summary.TPOT.P95}}</b>
+            </div>
+            <meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.TPOT.P95}}">{{ms .Detail.Summary.TPOT.P95}}</meter>
+            <small>{{.Detail.Summary.TPOT.Samples}} 样本</small>
+          </div>
+          <div>
+            <div>
+              <span class="term-label">Queue <button class="field-help" type="button" aria-label="Queue 说明" data-help="排队等待：请求等待可用并发槽位的时间。">?</button></span>
+              <b>{{ms .Detail.Summary.Queue.P95}}</b>
+            </div>
+            <meter min="0" max="{{maxFloat .Detail.Summary.E2E.P99}}" value="{{.Detail.Summary.Queue.P95}}">{{ms .Detail.Summary.Queue.P95}}</meter>
+            <small>{{.Detail.Summary.Queue.Samples}} 样本</small>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+  {{end}}
+
+  <section class="report-block">
+    <div class="report-block-head">
+      <h2><span class="term-label">延迟分析 <button class="field-help" type="button" aria-label="延迟分析说明" data-help="上半区为分位分布示意，右侧数值为 P99。下表给出平均、P50、P95、P99 与样本数。">?</button></span></h2>
+      <div class="profile-legend">
+        <span><i class="avg"></i>平均</span>
+        <span><i class="p50"></i><span class="term-label">P50 <button class="field-help" type="button" aria-label="P50 说明" data-help="第 50 百分位（中位数）：50% 的请求延迟不超过该值。">?</button></span></span>
+        <span><i class="p95"></i><span class="term-label">P95 <button class="field-help" type="button" aria-label="P95 说明" data-help="第 95 百分位：95% 的请求延迟不超过该值。">?</button></span></span>
+        <span><i class="p99"></i><span class="term-label">P99 <button class="field-help" type="button" aria-label="P99 说明" data-help="第 99 百分位：99% 的请求延迟不超过该值。">?</button></span></span>
+      </div>
+    </div>
+    <div class="profile-rows">
+      <div>
+        <header>
+          <span class="term-label">E2E <button class="field-help" type="button" aria-label="E2E 说明" data-help="端到端延迟：从请求进入排队到完整响应结束的总时间，可能包含重试。">?</button></span>
+          <em>{{ms .Detail.Summary.E2E.P99}}</em>
+        </header>
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-label="E2E 延迟分布"><line x1="0" y1="6" x2="100" y2="6"></line><circle class="avg" cx="{{ratio .Detail.Summary.E2E.Average (maxFloat .Detail.Summary.E2E.P99)}}" cy="6" r="2"></circle><circle class="p50" cx="{{ratio .Detail.Summary.E2E.P50 (maxFloat .Detail.Summary.E2E.P99)}}" cy="6" r="2"></circle><circle class="p95" cx="{{ratio .Detail.Summary.E2E.P95 (maxFloat .Detail.Summary.E2E.P99)}}" cy="6" r="2"></circle><circle class="p99" cx="{{ratio .Detail.Summary.E2E.P99 (maxFloat .Detail.Summary.E2E.P99)}}" cy="6" r="2"></circle></svg>
+      </div>
+      <div>
+        <header>
+          <span class="term-label">TTFT <button class="field-help" type="button" aria-label="TTFT 说明" data-help="Time To First Token，首词元延迟：发出请求到收到第一个内容 Token 的时间。">?</button></span>
+          <em>{{ms .Detail.Summary.TTFT.P99}}</em>
+        </header>
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-label="TTFT 延迟分布"><line x1="0" y1="6" x2="100" y2="6"></line><circle class="avg" cx="{{ratio .Detail.Summary.TTFT.Average (maxFloat .Detail.Summary.TTFT.P99)}}" cy="6" r="2"></circle><circle class="p50" cx="{{ratio .Detail.Summary.TTFT.P50 (maxFloat .Detail.Summary.TTFT.P99)}}" cy="6" r="2"></circle><circle class="p95" cx="{{ratio .Detail.Summary.TTFT.P95 (maxFloat .Detail.Summary.TTFT.P99)}}" cy="6" r="2"></circle><circle class="p99" cx="{{ratio .Detail.Summary.TTFT.P99 (maxFloat .Detail.Summary.TTFT.P99)}}" cy="6" r="2"></circle></svg>
+      </div>
+      <div>
+        <header>
+          <span class="term-label">TPOT <button class="field-help" type="button" aria-label="TPOT 说明" data-help="Time Per Output Token，每输出词元耗时：首词元之后每个输出 Token 的平均间隔。">?</button></span>
+          <em>{{ms .Detail.Summary.TPOT.P99}}</em>
+        </header>
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-label="TPOT 延迟分布"><line x1="0" y1="6" x2="100" y2="6"></line><circle class="avg" cx="{{ratio .Detail.Summary.TPOT.Average (maxFloat .Detail.Summary.TPOT.P99)}}" cy="6" r="2"></circle><circle class="p50" cx="{{ratio .Detail.Summary.TPOT.P50 (maxFloat .Detail.Summary.TPOT.P99)}}" cy="6" r="2"></circle><circle class="p95" cx="{{ratio .Detail.Summary.TPOT.P95 (maxFloat .Detail.Summary.TPOT.P99)}}" cy="6" r="2"></circle><circle class="p99" cx="{{ratio .Detail.Summary.TPOT.P99 (maxFloat .Detail.Summary.TPOT.P99)}}" cy="6" r="2"></circle></svg>
+      </div>
+      <div>
+        <header>
+          <span class="term-label">Queue <button class="field-help" type="button" aria-label="Queue 说明" data-help="排队等待时间：请求等待可用并发槽位的耗时。">?</button></span>
+          <em>{{ms .Detail.Summary.Queue.P99}}</em>
+        </header>
+        <svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-label="Queue 延迟分布"><line x1="0" y1="6" x2="100" y2="6"></line><circle class="avg" cx="{{ratio .Detail.Summary.Queue.Average (maxFloat .Detail.Summary.Queue.P99)}}" cy="6" r="2"></circle><circle class="p50" cx="{{ratio .Detail.Summary.Queue.P50 (maxFloat .Detail.Summary.Queue.P99)}}" cy="6" r="2"></circle><circle class="p95" cx="{{ratio .Detail.Summary.Queue.P95 (maxFloat .Detail.Summary.Queue.P99)}}" cy="6" r="2"></circle><circle class="p99" cx="{{ratio .Detail.Summary.Queue.P99 (maxFloat .Detail.Summary.Queue.P99)}}" cy="6" r="2"></circle></svg>
+      </div>
+    </div>
+    <div class="metric-table report-table">
+      <div class="metric-table-head">
+        <span>指标</span><span>平均</span><span>P50</span><span>P95</span><span>P99</span><span>样本</span>
+      </div>
+      <div>
+        <b><span class="term-label">E2E <button class="field-help" type="button" aria-label="E2E 说明" data-help="端到端延迟：从请求进入排队到完整响应结束的总时间。">?</button></span></b>
+        <span>{{ms .Detail.Summary.E2E.Average}}</span><span>{{ms .Detail.Summary.E2E.P50}}</span><span>{{ms .Detail.Summary.E2E.P95}}</span><span>{{ms .Detail.Summary.E2E.P99}}</span><span>{{.Detail.Summary.E2E.Samples}}</span>
+      </div>
+      <div>
+        <b><span class="term-label">TTFT <button class="field-help" type="button" aria-label="TTFT 说明" data-help="首词元延迟：发出请求到收到第一个内容 Token 的时间。">?</button></span></b>
+        <span>{{ms .Detail.Summary.TTFT.Average}}</span><span>{{ms .Detail.Summary.TTFT.P50}}</span><span>{{ms .Detail.Summary.TTFT.P95}}</span><span>{{ms .Detail.Summary.TTFT.P99}}</span><span>{{.Detail.Summary.TTFT.Samples}}</span>
+      </div>
+      <div>
+        <b><span class="term-label">TPOT <button class="field-help" type="button" aria-label="TPOT 说明" data-help="每输出词元耗时：首词元之后每个输出 Token 的平均间隔。">?</button></span></b>
+        <span>{{ms .Detail.Summary.TPOT.Average}}</span><span>{{ms .Detail.Summary.TPOT.P50}}</span><span>{{ms .Detail.Summary.TPOT.P95}}</span><span>{{ms .Detail.Summary.TPOT.P99}}</span><span>{{.Detail.Summary.TPOT.Samples}}</span>
+      </div>
+      <div>
+        <b><span class="term-label">HTTP <button class="field-help" type="button" aria-label="HTTP 说明" data-help="单次 HTTP 请求相关耗时，不含客户端排队等待。">?</button></span></b>
+        <span>{{ms .Detail.Summary.Request.Average}}</span><span>{{ms .Detail.Summary.Request.P50}}</span><span>{{ms .Detail.Summary.Request.P95}}</span><span>{{ms .Detail.Summary.Request.P99}}</span><span>{{.Detail.Summary.Request.Samples}}</span>
+      </div>
+      <div>
+        <b><span class="term-label">Queue <button class="field-help" type="button" aria-label="Queue 说明" data-help="排队等待时间：请求等待可用并发槽位的耗时。">?</button></span></b>
+        <span>{{ms .Detail.Summary.Queue.Average}}</span><span>{{ms .Detail.Summary.Queue.P50}}</span><span>{{ms .Detail.Summary.Queue.P95}}</span><span>{{ms .Detail.Summary.Queue.P99}}</span><span>{{.Detail.Summary.Queue.Samples}}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="report-split">
+    <div class="report-split-col">
+      <div class="report-block-head compact"><h2>可靠性</h2></div>
+      <div class="reliability-body inline">
+        <div class="donut">
+          <svg viewBox="0 0 120 120" role="img" aria-label="成功率 {{percent .Detail.Summary.SuccessRate}}">
+            <circle class="donut-track" cx="60" cy="60" r="48" pathLength="100"></circle>
+            <circle class="donut-value" cx="60" cy="60" r="48" pathLength="100" stroke-dasharray="{{decimal .Detail.Summary.SuccessRate}} 100"></circle>
+          </svg>
+          <div><strong>{{percent .Detail.Summary.SuccessRate}}</strong><span>成功率</span></div>
+        </div>
+        <dl>
+          <div><dt>成功</dt><dd>{{.Detail.Run.Succeeded}}</dd></div>
+          <div><dt>失败</dt><dd>{{.Detail.Run.Failed}}</dd></div>
+          <div><dt>重试</dt><dd>{{.Detail.Summary.Retries}}</dd></div>
+          <div>
+            <dt><span class="term-label">完整流 <button class="field-help" type="button" aria-label="完整流说明" data-help="收到 [DONE] 或 finish_reason 等完成标记的流式响应数量。">?</button></span></dt>
+            <dd>{{.Detail.Summary.CompleteResponses}}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+    <div class="report-split-col">
+      <div class="report-block-head compact">
+        <h2><span class="term-label">Token 画像 <button class="field-help" type="button" aria-label="Token 说明" data-help="词元用量统计。输入为 Prompt Tokens，输出为 Completion Tokens。">?</button></span></h2>
+      </div>
+      <div class="token-panel-body flush">
+        <div class="token-composition">
+          <svg viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="输入 Token {{.Detail.Summary.PromptTokens}}，输出 Token {{.Detail.Summary.CompletionTokens}}">
+            <rect class="prompt" x="0" y="0" width="{{ratioInt .Detail.Summary.PromptTokens (maxInt .Detail.Summary.TotalTokens)}}" height="10"></rect>
+            <rect class="completion" x="{{ratioInt .Detail.Summary.PromptTokens (maxInt .Detail.Summary.TotalTokens)}}" y="0" width="{{ratioInt .Detail.Summary.CompletionTokens (maxInt .Detail.Summary.TotalTokens)}}" height="10"></rect>
+          </svg>
+          <div>
+            <span><i class="prompt"></i>输入 {{.Detail.Summary.PromptTokens}}</span>
+            <span><i class="completion"></i>输出 {{.Detail.Summary.CompletionTokens}}</span>
+          </div>
+        </div>
+        <dl class="token-stats">
+          <div><dt>总 Token</dt><dd>{{.Detail.Summary.TotalTokens}}</dd></div>
+          <div>
+            <dt><span class="term-label">Usage 覆盖 <button class="field-help" type="button" aria-label="Usage 覆盖说明" data-help="接口实际返回 Token 用量字段的请求占比。">?</button></span></dt>
+            <dd>{{percent .Detail.Summary.UsageCoverage}}</dd>
+          </div>
+          <div>
+            <dt><span class="term-label">生成速率 <button class="field-help" type="button" aria-label="生成速率说明" data-help="首词元之后的输出 Token 生成速度，单位 tok/s。">?</button></span></dt>
+            <dd>{{decimal .Detail.Summary.GenerationTokensPerSec}} <small>tok/s</small></dd>
+          </div>
+          <div>
+            <dt><span class="term-label">墙钟吞吐 <button class="field-help" type="button" aria-label="墙钟吞吐说明" data-help="按整段请求耗时折算的输出 Token 吞吐，单位 tok/s。">?</button></span></dt>
+            <dd>{{decimal .Detail.Summary.CompletionTokensPerSec}} <small>tok/s</small></dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="report-block log-block">
+    <div class="report-block-head">
+      <h2>请求日志</h2>
+      <span class="live-caption">{{if or (eq .Detail.Run.Status "queued") (eq .Detail.Run.Status "warming") (eq .Detail.Run.Status "running")}}实时最近 100 条{{else}}全部 {{len .Detail.Results}} 条{{end}}</span>
+    </div>
+    {{if .Detail.Results}}
+    <div class="table-wrap log-table">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>结果</th>
+            <th>HTTP</th>
+            <th><span class="term-label">E2E <button class="field-help" type="button" aria-label="E2E 说明" data-help="端到端延迟：排队到完整响应结束的总时间。">?</button></span></th>
+            <th><span class="term-label">TTFT <button class="field-help" type="button" aria-label="TTFT 说明" data-help="首词元延迟：发起到首个内容 Token 的时间。">?</button></span></th>
+            <th><span class="term-label">TPOT <button class="field-help" type="button" aria-label="TPOT 说明" data-help="每输出词元耗时：生成阶段每个输出 Token 的平均间隔。">?</button></span></th>
+            <th>Token</th>
+            <th>尝试</th>
+            <th>提示 / 回答 / 错误</th>
+          </tr>
+        </thead>
+        <tbody>
+        {{range .Detail.Results}}
+          <tr>
+            <td class="mono">{{printf "%04d" .RequestIndex}}</td>
+            <td>{{if .OK}}<span class="result-ok">OK</span>{{else}}<span class="result-bad">ERR</span>{{end}}</td>
+            <td class="mono">{{if .Status}}{{derefInt .Status}}{{else}}-{{end}}</td>
+            <td class="mono">{{ms .ElapsedMS}}</td>
+            <td class="mono">{{if .TTFTMS}}{{ms (derefFloat .TTFTMS)}}{{else}}-{{end}}</td>
+            <td class="mono">{{if .TPOTMS}}{{ms (derefFloat .TPOTMS)}}{{else}}-{{end}}</td>
+            <td class="mono">{{if .CompletionTokens}}{{derefInt .CompletionTokens}}{{else}}-{{end}}</td>
+            <td class="mono">{{.Attempts}}</td>
+            <td class="log-copy"><b>问：</b>{{.Prompt}}{{if .ResponsePreview}}<br><b>答：</b>{{.ResponsePreview}}{{end}}{{if .ErrorMessage}}<br><b class="error-copy">错：</b>{{.ErrorMessage}}{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="empty pulse-empty"><b>暂无请求日志</b><span>任务启动后将在此展示逐请求结果与性能报告。</span></div>
+    {{end}}
+  </section>
+
+  <footer class="report-doc-foot">
+    <h2>运行上下文</h2>
+    <dl>
+      <div><dt>推理目标</dt><dd>{{.Detail.Run.TargetName}}</dd></div>
+      <div><dt>评测场景</dt><dd>{{.Detail.Run.ScenarioName}}</dd></div>
+      <div><dt>协议</dt><dd>{{.Detail.Run.Protocol}}</dd></div>
+      <div><dt>模型</dt><dd>{{.Detail.Run.Model}}</dd></div>
+      <div><dt>重试次数</dt><dd>{{.Detail.Summary.Retries}}</dd></div>
+      <div><dt>完整响应</dt><dd>{{.Detail.Summary.CompleteResponses}}</dd></div>
+    </dl>
+  </footer>
+</article>
 </div>
 {{template "foot" .}}
 {{end}}

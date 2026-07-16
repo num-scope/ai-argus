@@ -39,11 +39,18 @@ func CreateRun(c *gin.Context) {
 }
 
 func RunDetail(c *gin.Context) {
+	// Merged live log + performance report on a single page.
 	renderRun(c, "run_detail.html", "runs")
 }
 
 func Report(c *gin.Context) {
-	renderRun(c, "report.html", "reports")
+	// Keep old /reports/:id links working by redirecting to the merged run page.
+	id := c.Param("id")
+	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
+		c.String(http.StatusBadRequest, "任务编号无效")
+		return
+	}
+	c.Redirect(http.StatusFound, "/runs/"+id)
 }
 
 func CancelRun(c *gin.Context) {
@@ -59,13 +66,32 @@ func CancelRun(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/runs/"+strconv.FormatInt(id, 10)+"?notice="+url.QueryEscape("停止指令已发送"))
 }
 
+func ExportRun(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, "任务编号无效")
+		return
+	}
+	payload, filename, err := service.ExportRunJSONL(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			c.String(http.StatusNotFound, common.ErrNotFound.Error())
+			return
+		}
+		renderError(c, err)
+		return
+	}
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Data(http.StatusOK, "application/x-ndjson; charset=utf-8", payload)
+}
+
 func renderRun(c *gin.Context, templateName, page string) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.String(http.StatusBadRequest, "任务编号无效")
 		return
 	}
-	detail, err := service.GetRunDetail(c.Request.Context(), id, 100)
+	detail, err := service.GetRunDetailForPage(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, common.ErrNotFound) {
 			c.String(http.StatusNotFound, common.ErrNotFound.Error())
@@ -75,7 +101,7 @@ func renderRun(c *gin.Context, templateName, page string) {
 		return
 	}
 	c.HTML(http.StatusOK, templateName, runPage{
-		pageBase: pageBase{Page: page, Notice: c.Query("notice"), Error: c.Query("error"), Charts: templateName == "run_detail.html"},
+		pageBase: pageBase{Page: page, Notice: c.Query("notice"), Error: c.Query("error"), Charts: true},
 		Detail:   detail,
 	})
 }

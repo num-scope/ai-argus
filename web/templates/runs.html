@@ -1,16 +1,22 @@
 {{define "runs.html"}}
 {{template "head" .}}
 <section class="launch-panel panel compact-launch">
-  <div class="launch-copy"><h2>新建运行</h2></div>
+  <div class="launch-copy">
+    <h2>新建运行</h2>
+    <p>选择目标与场景，启动性能观测。</p>
+  </div>
   <form method="post" action="/runs" class="launch-form">
     <label><span class="field-title">推理目标 <button class="field-help" type="button" aria-label="推理目标说明" data-help="决定本次观测请求发往哪个接口，并使用该目标保存的协议、模型和鉴权配置。">?</button></span><select name="target_id" required><option value="">选择目标</option>{{range .Targets}}<option value="{{.ID}}">{{.Name}} · {{.Model}}</option>{{end}}</select></label>
     <label><span class="field-title">评测场景 <button class="field-help" type="button" aria-label="评测场景说明" data-help="决定并发、请求数、提示词、生成参数、超时和重试策略；启动后会固化为运行快照。">?</button></span><select name="scenario_id" required><option value="">选择场景</option>{{range .Scenarios}}<option value="{{.ID}}">{{.Name}} · {{.Concurrency}} 并发</option>{{end}}</select></label>
-    <button class="button primary" type="submit" {{if or (not .Targets) (not .Scenarios)}}disabled{{end}}>启动观测 <span>→</span></button>
+    <button class="button primary" type="submit" {{if or (not .Targets) (not .Scenarios)}}disabled{{end}}>启动观测</button>
   </form>
 </section>
 
 <section class="panel">
-  <div class="panel-head"><h2>历史运行</h2></div>
+  <div class="panel-head">
+    <h2>历史运行</h2>
+    {{if .Runs}}<span class="panel-count">{{len .Runs}}</span>{{end}}
+  </div>
   {{if .Runs}}
   <div class="table-wrap">
     <table class="runs-table">
@@ -24,13 +30,18 @@
           <td class="mono">{{.Completed}}{{if gt .Planned 0}} / {{.Planned}}{{else}} / ∞{{end}}</td>
           <td>{{template "run-status" .Status}}</td>
           <td class="muted-text">{{formatTime .CreatedAt}}</td>
-          <td><a class="arrow-link" href="/reports/{{.ID}}" title="报告">↗</a></td>
+          <td><a class="arrow-link" href="/runs/{{.ID}}" title="详情与报告">↗</a></td>
         </tr>
       {{end}}
       </tbody>
     </table>
   </div>
-  {{else}}<div class="empty"><b>暂无运行记录</b></div>{{end}}
+  {{else}}
+  <div class="empty">
+    <b>暂无运行记录</b>
+    <span>配置目标与场景后，从上方启动第一次观测。</span>
+  </div>
+  {{end}}
 </section>
 {{template "foot" .}}
 {{end}}

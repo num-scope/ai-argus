@@ -1,40 +1,65 @@
 {{define "dashboard.html"}}
 {{template "head" .}}
 <section class="metric-strip">
-  <article><span>推理目标</span><strong>{{.Dashboard.TargetCount}}</strong></article>
-  <article><span>评测场景</span><strong>{{.Dashboard.ScenarioCount}}</strong></article>
-  <article><span>累计运行</span><strong>{{.Dashboard.RunCount}}</strong></article>
-  <article class="accent"><span>活跃任务</span><strong>{{.Dashboard.ActiveRunCount}}</strong></article>
-  <article><span>最近成功率</span><strong>{{percent .Dashboard.LastSuccessRate}}</strong></article>
-  <article><span>最近吞吐</span><strong>{{decimal .Dashboard.LastRPS}}</strong></article>
+  <article>
+    <span>推理目标</span>
+    <strong>{{.Dashboard.TargetCount}}</strong>
+  </article>
+  <article>
+    <span>评测场景</span>
+    <strong>{{.Dashboard.ScenarioCount}}</strong>
+  </article>
+  <article>
+    <span>累计运行</span>
+    <strong>{{.Dashboard.RunCount}}</strong>
+  </article>
+  <article class="accent">
+    <span>活跃任务</span>
+    <strong>{{.Dashboard.ActiveRunCount}}</strong>
+  </article>
+  <article>
+    <span>最近成功率</span>
+    <strong>{{percent .Dashboard.LastSuccessRate}}</strong>
+  </article>
+  <article>
+    <span class="term-label">RPS <button class="field-help" type="button" aria-label="RPS 说明" data-help="Requests Per Second，每秒请求数，反映吞吐。">?</button></span>
+    <strong>{{decimal .Dashboard.LastRPS}}</strong>
+  </article>
 </section>
 
 <section class="panel">
-    <div class="panel-head">
-      <h2>最近运行</h2>
-      <a href="/runs">查看全部 →</a>
+  <div class="panel-head">
+    <h2>最近运行</h2>
+    <a href="/runs">查看全部</a>
+  </div>
+  {{if .Dashboard.RecentRuns}}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>任务</th><th>目标 / 模型</th><th>场景</th><th>进度</th><th>状态</th><th>时间</th></tr></thead>
+      <tbody>
+      {{range .Dashboard.RecentRuns}}
+        <tr>
+          <td><a class="mono-link" href="/runs/{{.ID}}">RUN-{{printf "%04d" .ID}}</a></td>
+          <td><b>{{.TargetName}}</b><small class="cell-sub">{{.Model}}</small></td>
+          <td>{{.ScenarioName}}</td>
+          <td><span class="mono">{{.Completed}}{{if gt .Planned 0}} / {{.Planned}}{{else}} / ∞{{end}}</span></td>
+          <td>{{template "run-status" .Status}}</td>
+          <td class="muted-text">{{formatTime .CreatedAt}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty">
+    <b>暂无运行记录</b>
+    <span>添加推理目标与评测场景后，即可启动第一次观测。</span>
+    <div class="empty-actions">
+      <a class="button ghost" href="/targets">添加目标</a>
+      <a class="button primary" href="/runs">去启动</a>
     </div>
-    {{if .Dashboard.RecentRuns}}
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>任务</th><th>目标 / 模型</th><th>场景</th><th>进度</th><th>状态</th><th>时间</th></tr></thead>
-        <tbody>
-        {{range .Dashboard.RecentRuns}}
-          <tr>
-            <td><a class="mono-link" href="/runs/{{.ID}}">RUN-{{printf "%04d" .ID}}</a></td>
-            <td><b>{{.TargetName}}</b><small class="cell-sub">{{.Model}}</small></td>
-            <td>{{.ScenarioName}}</td>
-            <td><span class="mono">{{.Completed}}{{if gt .Planned 0}} / {{.Planned}}{{else}} / ∞{{end}}</span></td>
-            <td>{{template "run-status" .Status}}</td>
-            <td class="muted-text">{{formatTime .CreatedAt}}</td>
-          </tr>
-        {{end}}
-        </tbody>
-      </table>
-    </div>
-    {{else}}
-    <div class="empty"><b>暂无运行记录</b></div>
-    {{end}}
+  </div>
+  {{end}}
 </section>
 {{template "foot" .}}
 {{end}}

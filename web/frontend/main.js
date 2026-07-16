@@ -58,10 +58,59 @@ function initTooltips(root = document) {
   });
 }
 
+function initScenarioForm(root = document) {
+  const form = root.querySelector("[data-scenario-form]");
+  if (!form || form.dataset.bound) return;
+  form.dataset.bound = "true";
+
+  const randomToggle = form.querySelector("[data-random-prompt]");
+  const randomFields = form.querySelector("[data-random-fields]");
+  const promptsInput = form.querySelector("[data-prompts-input]");
+  const promptFile = form.querySelector("[data-prompt-file]");
+
+  const syncRandom = () => {
+    const on = Boolean(randomToggle?.checked);
+    if (randomFields) randomFields.hidden = !on;
+    if (promptsInput) {
+      promptsInput.required = !on;
+      promptsInput.closest("[data-prompt-field]")?.classList.toggle("is-optional", on);
+    }
+  };
+
+  randomToggle?.addEventListener("change", syncRandom);
+  syncRandom();
+
+  promptFile?.addEventListener("change", async () => {
+    const file = promptFile.files?.[0];
+    if (!file || !promptsInput) return;
+    const text = await file.text();
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    promptsInput.value = lines.join("\n");
+    promptFile.value = "";
+  });
+}
+
 function initUI(root = document) {
   initTargetForm(root);
+  initScenarioForm(root);
   initTooltips(root);
 }
 
-document.addEventListener("DOMContentLoaded", () => initUI());
+function initPrintPDF() {
+  // Ensure print layout uses full document flow; charts keep current canvas state.
+  window.addEventListener("beforeprint", () => {
+    document.documentElement.classList.add("is-printing");
+  });
+  window.addEventListener("afterprint", () => {
+    document.documentElement.classList.remove("is-printing");
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initUI();
+  initPrintPDF();
+});
 document.body.addEventListener("htmx:afterSettle", () => initUI());

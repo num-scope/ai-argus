@@ -7,16 +7,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xtj/ai-argus/internal/prompt"
 	"github.com/xtj/ai-argus/internal/protocol"
 )
 
 type Config struct {
-	Protocol       protocol.Config `json:"target"`
-	Prompts        []string        `json:"prompts"`
-	Concurrency    int             `json:"concurrency"`
-	TotalRequests  int             `json:"total_requests"`
-	WarmupRequests int             `json:"warmup_requests"`
-	RampUpSeconds  float64         `json:"ramp_up_seconds"`
+	Protocol                protocol.Config `json:"target"`
+	Prompts                 []string        `json:"prompts"`
+	Concurrency             int             `json:"concurrency"`
+	TotalRequests           int             `json:"total_requests"`
+	WarmupRequests          int             `json:"warmup_requests"`
+	RampUpSeconds           float64         `json:"ramp_up_seconds"`
+	RandomPromptMode        bool            `json:"random_prompt_mode"`
+	RandomPromptTargetChars int             `json:"random_prompt_target_chars"`
+	RandomPromptMaxChars    int             `json:"random_prompt_max_chars"`
 }
 
 type PhaseCallback func(status string) error
@@ -41,7 +45,7 @@ func Run(ctx context.Context, cfg Config, onPhase PhaseCallback, onResult Result
 		}
 		failed := 0
 		firstError := ""
-		err := execute(ctx, client, cfg.Prompts, min(cfg.Concurrency, cfg.WarmupRequests), cfg.WarmupRequests, 0, func(result protocol.Result) error {
+		err := execute(ctx, client, cfg, min(cfg.Concurrency, cfg.WarmupRequests), cfg.WarmupRequests, 0, func(result protocol.Result) error {
 			if !result.OK {
 				failed++
 				if firstError == "" {
@@ -63,7 +67,7 @@ func Run(ctx context.Context, cfg Config, onPhase PhaseCallback, onResult Result
 	}
 	startedAt := time.Now()
 	collector := NewCollector(startedAt)
-	err := execute(ctx, client, cfg.Prompts, cfg.Concurrency, cfg.TotalRequests, cfg.RampUpSeconds, func(result protocol.Result) error {
+	err := execute(ctx, client, cfg, cfg.Concurrency, cfg.TotalRequests, cfg.RampUpSeconds, func(result protocol.Result) error {
 		collector.Add(result)
 		return onResult(result)
 	})
@@ -74,7 +78,7 @@ func Run(ctx context.Context, cfg Config, onPhase PhaseCallback, onResult Result
 	return summary, nil
 }
 
-func execute(ctx context.Context, client *protocol.Client, prompts []string, concurrency, total int, rampUpSeconds float64, callback ResultCallback) error {
+func execute(ctx context.Context, client *protocol.Client, cfg Config, concurrency, total int, rampUpSeconds float64, callback ResultCallback) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	workerCount := concurrency
@@ -129,7 +133,7 @@ func execute(ctx context.Context, client *protocol.Client, prompts []string, con
 		for index := 1; total <= 0 || index <= total; index++ {
 			job := scheduledJob{
 				index:    index,
-				prompt:   prompts[(index-1)%len(prompts)],
+				prompt:   pickPrompt(cfg, index),
 				queuedAt: time.Now(),
 			}
 			select {
@@ -152,6 +156,16 @@ func execute(ctx context.Context, client *protocol.Client, prompts []string, con
 	return nil
 }
 
+func pickPrompt(cfg Config, index int) string {
+	if cfg.RandomPromptMode {
+		return prompt.Generate(cfg.RandomPromptTargetChars, cfg.RandomPromptMaxChars)
+	}
+	if len(cfg.Prompts) == 0 {
+		return ""
+	}
+	return cfg.Prompts[(index-1)%len(cfg.Prompts)]
+}
+
 func validateConfig(cfg Config) error {
 	if cfg.Concurrency < 1 {
 		return errors.New("并发数必须大于 0")
@@ -159,8 +173,13 @@ func validateConfig(cfg Config) error {
 	if cfg.TotalRequests < 0 || cfg.WarmupRequests < 0 || cfg.RampUpSeconds < 0 {
 		return errors.New("请求数、预热数和升压时间不能小于 0")
 	}
-	if len(cfg.Prompts) == 0 {
+	if !cfg.RandomPromptMode && len(cfg.Prompts) == 0 {
 		return errors.New("至少需要一个提示词")
+	}
+	if cfg.RandomPromptMode {
+		if cfg.RandomPromptTargetChars < 1 || cfg.RandomPromptMaxChars < cfg.RandomPromptTargetChars {
+			return errors.New("随机提示词长度配置无效")
+		}
 	}
 	return nil
 }

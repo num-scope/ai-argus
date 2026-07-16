@@ -52,7 +52,7 @@ function initRequestCharts(root = document) {
           value: point.elapsed,
           index: point.index,
           ok: point.ok,
-          itemStyle: { color: point.ok ? "#7eb7f5" : "#e46b71", borderRadius: [2, 2, 0, 0] },
+          itemStyle: { color: point.ok ? "#171717" : "#e00", borderRadius: [2, 2, 0, 0] },
         })),
       }],
     });

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/xtj/ai-argus/internal/common"
@@ -118,7 +119,14 @@ func GetRunDetail(ctx context.Context, id int64, resultLimit int) (*dto.RunDetai
 	if err != nil {
 		return nil, err
 	}
-	results, err := dao.ListRequestResults(ctx, id, resultLimit)
+	var results []model.RequestResult
+	if resultLimit <= 0 {
+		// Full chronological log for finished runs / PDF export.
+		results, err = dao.ListRequestResultsASC(ctx, id)
+	} else {
+		// Newest-first bounded window for live HTMX refresh.
+		results, err = dao.ListRequestResults(ctx, id, resultLimit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +141,67 @@ func GetRunDetail(ctx context.Context, id int64, resultLimit int) (*dto.RunDetai
 		resultResponses = append(resultResponses, toRequestResultResponse(result))
 	}
 	return &dto.RunDetail{Run: toRunResponse(*run), Summary: summary, Results: resultResponses}, nil
+}
+
+// GetRunDetailForPage loads run detail with a result strategy suitable for the
+// merged live+report UI: live runs keep a bounded newest window; finished runs
+// load every request log (chronological) so on-screen view and PDF export match.
+func GetRunDetailForPage(ctx context.Context, id int64) (*dto.RunDetail, error) {
+	run, err := dao.GetRunByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	limit := 0
+	switch run.Status {
+	case model.RunStatusQueued, model.RunStatusWarming, model.RunStatusRunning:
+		limit = 100
+	}
+	return GetRunDetail(ctx, id, limit)
+}
+
+// ExportRunJSONL returns newline-delimited JSON for every request result of a run.
+func ExportRunJSONL(ctx context.Context, id int64) ([]byte, string, error) {
+	run, err := dao.GetRunByID(ctx, id)
+	if err != nil {
+		return nil, "", err
+	}
+	results, err := dao.ListRequestResultsASC(ctx, id)
+	if err != nil {
+		return nil, "", err
+	}
+	var builder strings.Builder
+	for _, result := range results {
+		row := map[string]any{
+			"run_id":            result.RunID,
+			"request_index":     result.RequestIndex,
+			"prompt":            result.Prompt,
+			"ok":                result.OK,
+			"status":            result.Status,
+			"attempts":          result.Attempts,
+			"elapsed_ms":        result.ElapsedMS,
+			"queue_ms":          result.QueueMS,
+			"request_ms":        result.RequestMS,
+			"ttft_ms":           result.TTFTMS,
+			"tpot_ms":           result.TPOTMS,
+			"prompt_tokens":     result.PromptTokens,
+			"completion_tokens": result.CompletionTokens,
+			"total_tokens":      result.TotalTokens,
+			"content_chunks":    result.ContentChunks,
+			"streamed":          result.Streamed,
+			"stream_completed":  result.StreamCompleted,
+			"response_preview":  result.ResponsePreview,
+			"error":             result.ErrorMessage,
+			"created_at":        result.CreatedAt,
+		}
+		raw, marshalErr := json.Marshal(row)
+		if marshalErr != nil {
+			return nil, "", marshalErr
+		}
+		builder.Write(raw)
+		builder.WriteByte('\n')
+	}
+	filename := fmt.Sprintf("run-%04d.jsonl", run.ID)
+	return []byte(builder.String()), filename, nil
 }
 
 func ReconcileInterruptedRuns(ctx context.Context) error {

@@ -10,6 +10,32 @@ import (
 	"testing"
 )
 
+func TestClientOmitsMaxTokensWhenUnlimited(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if _, ok := payload["max_tokens"]; ok {
+			t.Fatalf("max_tokens must be omitted when MaxOutputTokens is 0: %#v", payload)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{
+		URL: server.URL, Protocol: "openai", Model: "argus-test",
+		Temperature: 0.7, TopP: 1, MaxOutputTokens: 0, ConnectTimeoutSeconds: 1,
+	}, 1)
+	defer client.Close()
+	result := client.Execute(context.Background(), 1, "ping", 0)
+	if !result.OK {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
 func TestClientExecutesOpenAIStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload map[string]any
@@ -18,6 +44,9 @@ func TestClientExecutesOpenAIStream(t *testing.T) {
 		}
 		if payload["model"] != "argus-test" || payload["stream"] != true {
 			t.Fatalf("unexpected payload: %#v", payload)
+		}
+		if payload["max_tokens"] != float64(32) {
+			t.Fatalf("expected max_tokens=32 when capped, got %#v", payload["max_tokens"])
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"你\"},\"finish_reason\":null}]}\n\n")

@@ -37,6 +37,7 @@ func NewRouter() (*gin.Engine, error) {
 	router.POST("/runs", CreateRun)
 	router.GET("/runs/:id", RunDetail)
 	router.POST("/runs/:id/cancel", CancelRun)
+	router.GET("/runs/:id/export", ExportRun)
 	router.GET("/reports/:id", Report)
 
 	apiGroup := router.Group("/api/v1")

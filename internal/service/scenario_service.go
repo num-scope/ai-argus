@@ -17,6 +17,7 @@ import (
 )
 
 func CreateScenario(ctx context.Context, req dto.ScenarioRequest) (*dto.ScenarioResponse, error) {
+	req = normalizeScenarioRequest(req)
 	req.Name = strings.TrimSpace(req.Name)
 	req.SystemPrompt = strings.TrimSpace(req.SystemPrompt)
 	prompts := splitPrompts(req.Prompts)
@@ -27,28 +28,36 @@ func CreateScenario(ctx context.Context, req dto.ScenarioRequest) (*dto.Scenario
 	if err := validateScenarioRequest(req, prompts, RunConcurrencyLimit()); err != nil {
 		return nil, err
 	}
+	if len(prompts) == 0 {
+		prompts = []string{}
+	}
 	promptsJSON, err := json.Marshal(prompts)
 	if err != nil {
 		return nil, err
 	}
 	scenario := &model.Scenario{
-		Name:                  req.Name,
-		SystemPrompt:          req.SystemPrompt,
-		PromptsJSON:           string(promptsJSON),
-		Concurrency:           req.Concurrency,
-		TotalRequests:         req.TotalRequests,
-		WarmupRequests:        req.WarmupRequests,
-		RampUpSeconds:         req.RampUpSeconds,
-		Temperature:           req.Temperature,
-		TopP:                  req.TopP,
-		MaxOutputTokens:       req.MaxOutputTokens,
-		Seed:                  seed,
-		IncludeUsage:          req.IncludeUsage,
-		TimeoutSeconds:        req.TimeoutSeconds,
-		ConnectTimeoutSeconds: req.ConnectTimeoutSeconds,
-		MaxRetries:            req.MaxRetries,
-		RetryBaseDelaySeconds: req.RetryBaseDelaySeconds,
-		SaveResponsePreview:   req.SaveResponsePreview,
+		Name:                    req.Name,
+		SystemPrompt:            req.SystemPrompt,
+		PromptsJSON:             string(promptsJSON),
+		Concurrency:             req.Concurrency,
+		TotalRequests:           req.TotalRequests,
+		WarmupRequests:          req.WarmupRequests,
+		RampUpSeconds:           req.RampUpSeconds,
+		Temperature:             req.Temperature,
+		TopP:                    req.TopP,
+		MaxOutputTokens:         req.MaxOutputTokens,
+		Seed:                    seed,
+		IncludeUsage:            req.IncludeUsage,
+		TimeoutSeconds:          req.TimeoutSeconds,
+		ConnectTimeoutSeconds:   req.ConnectTimeoutSeconds,
+		MaxRetries:              req.MaxRetries,
+		RetryBaseDelaySeconds:   req.RetryBaseDelaySeconds,
+		SaveResponsePreview:     req.SaveResponsePreview,
+		SaveResponseBody:        req.SaveResponseBody,
+		ResponsePreviewLength:   req.ResponsePreviewLength,
+		RandomPromptMode:        req.RandomPromptMode,
+		RandomPromptTargetChars: req.RandomPromptTargetChars,
+		RandomPromptMaxChars:    req.RandomPromptMaxChars,
 	}
 	if err := dao.CreateScenario(ctx, scenario); err != nil {
 		if errors.Is(err, common.ErrAlreadyExists) {
@@ -98,6 +107,31 @@ func DeleteScenario(ctx context.Context, id int64) error {
 	return dao.DeleteScenario(ctx, id)
 }
 
+func normalizeScenarioRequest(req dto.ScenarioRequest) dto.ScenarioRequest {
+	if req.Concurrency == 0 {
+		req.Concurrency = dto.DefaultConcurrency
+	}
+	if req.TopP == 0 {
+		req.TopP = dto.DefaultTopP
+	}
+	if req.ConnectTimeoutSeconds == 0 {
+		req.ConnectTimeoutSeconds = dto.DefaultConnectTimeoutSeconds
+	}
+	if req.RetryBaseDelaySeconds == 0 && req.MaxRetries > 0 {
+		req.RetryBaseDelaySeconds = dto.DefaultRetryBaseDelaySeconds
+	}
+	if req.ResponsePreviewLength <= 0 {
+		req.ResponsePreviewLength = dto.DefaultResponsePreviewLength
+	}
+	if req.RandomPromptTargetChars <= 0 {
+		req.RandomPromptTargetChars = dto.DefaultRandomPromptTargetChars
+	}
+	if req.RandomPromptMaxChars <= 0 {
+		req.RandomPromptMaxChars = dto.DefaultRandomPromptMaxChars
+	}
+	return req
+}
+
 func splitPrompts(value string) []string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	result := make([]string, 0, len(lines))
@@ -110,6 +144,9 @@ func splitPrompts(value string) []string {
 }
 
 func decodePrompts(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return []string{}, nil
+	}
 	var prompts []string
 	if err := json.Unmarshal([]byte(value), &prompts); err != nil {
 		return nil, err
@@ -130,8 +167,11 @@ func parseSeed(value string) (*int, error) {
 }
 
 func validateScenarioRequest(req dto.ScenarioRequest, prompts []string, maxConcurrency int) error {
-	if req.Name == "" || len(prompts) == 0 {
-		return invalidRequest("名称和至少一个提示词不能为空")
+	if req.Name == "" {
+		return invalidRequest("名称不能为空")
+	}
+	if !req.RandomPromptMode && len(prompts) == 0 {
+		return invalidRequest("固定提示词模式下至少需要一条用户提示词")
 	}
 	if req.Concurrency < 1 || req.Concurrency > maxConcurrency {
 		return invalidRequest("并发数必须在 1 到平台上限之间")
@@ -148,14 +188,26 @@ func validateScenarioRequest(req dto.ScenarioRequest, prompts []string, maxConcu
 	if !isFinite(req.Temperature) || !isFinite(req.TopP) {
 		return invalidRequest("Temperature 和 Top P 必须是有限数值")
 	}
-	if req.MaxOutputTokens < 1 {
-		return invalidRequest("最大输出 Token 必须大于 0")
+	// 0 means unlimited (omit max_tokens in request); positive values set a hard cap.
+	if req.MaxOutputTokens < 0 || req.MaxOutputTokens > 1_000_000 {
+		return invalidRequest("最大输出 Token 必须为 0（不限制）或 1 到 1000000")
 	}
 	if !isFinite(req.TimeoutSeconds) || !isFinite(req.ConnectTimeoutSeconds) || req.TimeoutSeconds < 0 || req.TimeoutSeconds > 86400 || req.ConnectTimeoutSeconds <= 0 || req.ConnectTimeoutSeconds > 300 {
 		return invalidRequest("总超时必须在 0 到 86400 秒，连接超时必须大于 0 且不超过 300 秒")
 	}
 	if !isFinite(req.RetryBaseDelaySeconds) || req.MaxRetries < 0 || req.MaxRetries > protocol.MaxRetries || req.RetryBaseDelaySeconds < 0 || req.RetryBaseDelaySeconds > 60 {
 		return invalidRequest("重试次数必须在 0 到 10，基础退避必须在 0 到 60 秒")
+	}
+	if req.ResponsePreviewLength < 1 || req.ResponsePreviewLength > dto.MaxResponsePreviewLength {
+		return invalidRequest("回答预览长度必须在 1 到 5000 之间")
+	}
+	if req.RandomPromptMode {
+		if req.RandomPromptTargetChars < 1 || req.RandomPromptMaxChars < req.RandomPromptTargetChars {
+			return invalidRequest("随机提示词目标长度必须大于 0，且最大长度不能小于目标长度")
+		}
+		if req.RandomPromptMaxChars > 500 {
+			return invalidRequest("随机提示词最大长度不能超过 500")
+		}
 	}
 	return nil
 }
@@ -166,25 +218,55 @@ func isFinite(value float64) bool {
 
 func toScenarioResponse(scenario model.Scenario, prompts []string) dto.ScenarioResponse {
 	return dto.ScenarioResponse{
-		ID:                    scenario.ID,
-		Name:                  scenario.Name,
-		SystemPrompt:          scenario.SystemPrompt,
-		Prompts:               prompts,
-		Concurrency:           scenario.Concurrency,
-		TotalRequests:         scenario.TotalRequests,
-		WarmupRequests:        scenario.WarmupRequests,
-		RampUpSeconds:         scenario.RampUpSeconds,
-		Temperature:           scenario.Temperature,
-		TopP:                  scenario.TopP,
-		MaxOutputTokens:       scenario.MaxOutputTokens,
-		Seed:                  scenario.Seed,
-		IncludeUsage:          scenario.IncludeUsage,
-		TimeoutSeconds:        scenario.TimeoutSeconds,
-		ConnectTimeoutSeconds: scenario.ConnectTimeoutSeconds,
-		MaxRetries:            scenario.MaxRetries,
-		RetryBaseDelaySeconds: scenario.RetryBaseDelaySeconds,
-		SaveResponsePreview:   scenario.SaveResponsePreview,
-		CreatedAt:             scenario.CreatedAt,
-		UpdatedAt:             scenario.UpdatedAt,
+		ID:                      scenario.ID,
+		Name:                    scenario.Name,
+		SystemPrompt:            scenario.SystemPrompt,
+		Prompts:                 prompts,
+		Concurrency:             scenario.Concurrency,
+		TotalRequests:           scenario.TotalRequests,
+		WarmupRequests:          scenario.WarmupRequests,
+		RampUpSeconds:           scenario.RampUpSeconds,
+		Temperature:             scenario.Temperature,
+		TopP:                    scenario.TopP,
+		MaxOutputTokens:         scenario.MaxOutputTokens,
+		Seed:                    scenario.Seed,
+		IncludeUsage:            scenario.IncludeUsage,
+		TimeoutSeconds:          scenario.TimeoutSeconds,
+		ConnectTimeoutSeconds:   scenario.ConnectTimeoutSeconds,
+		MaxRetries:              scenario.MaxRetries,
+		RetryBaseDelaySeconds:   scenario.RetryBaseDelaySeconds,
+		SaveResponsePreview:     scenario.SaveResponsePreview,
+		SaveResponseBody:        scenario.SaveResponseBody,
+		ResponsePreviewLength:   normalizePreviewLength(scenario.ResponsePreviewLength),
+		RandomPromptMode:        scenario.RandomPromptMode,
+		RandomPromptTargetChars: normalizeRandomTarget(scenario.RandomPromptTargetChars),
+		RandomPromptMaxChars:    normalizeRandomMax(scenario.RandomPromptMaxChars, scenario.RandomPromptTargetChars),
+		CreatedAt:               scenario.CreatedAt,
+		UpdatedAt:               scenario.UpdatedAt,
 	}
+}
+
+func normalizePreviewLength(value int) int {
+	if value <= 0 {
+		return dto.DefaultResponsePreviewLength
+	}
+	if value > dto.MaxResponsePreviewLength {
+		return dto.MaxResponsePreviewLength
+	}
+	return value
+}
+
+func normalizeRandomTarget(value int) int {
+	if value <= 0 {
+		return dto.DefaultRandomPromptTargetChars
+	}
+	return value
+}
+
+func normalizeRandomMax(maxChars, targetChars int) int {
+	target := normalizeRandomTarget(targetChars)
+	if maxChars < target {
+		return dto.DefaultRandomPromptMaxChars
+	}
+	return maxChars
 }

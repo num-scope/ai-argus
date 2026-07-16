@@ -24,6 +24,9 @@ func buildBenchmarkConfig(target model.Target, scenario model.Scenario) (benchma
 	if err := json.Unmarshal([]byte(defaultJSONObject(target.ExtraBodyJSON)), &extraBody); err != nil {
 		return benchmark.Config{}, fmt.Errorf("解析额外请求体: %w", err)
 	}
+	previewLen := normalizePreviewLength(scenario.ResponsePreviewLength)
+	targetChars := normalizeRandomTarget(scenario.RandomPromptTargetChars)
+	maxChars := normalizeRandomMax(scenario.RandomPromptMaxChars, scenario.RandomPromptTargetChars)
 	return benchmark.Config{
 		Protocol: protocol.Config{
 			URL:                   target.URL,
@@ -44,12 +47,17 @@ func buildBenchmarkConfig(target model.Target, scenario model.Scenario) (benchma
 			MaxRetries:            scenario.MaxRetries,
 			RetryBaseDelaySeconds: scenario.RetryBaseDelaySeconds,
 			SaveResponsePreview:   scenario.SaveResponsePreview,
+			SaveResponseBody:      scenario.SaveResponseBody,
+			ResponsePreviewLength: previewLen,
 		},
-		Prompts:        prompts,
-		Concurrency:    scenario.Concurrency,
-		TotalRequests:  scenario.TotalRequests,
-		WarmupRequests: scenario.WarmupRequests,
-		RampUpSeconds:  scenario.RampUpSeconds,
+		Prompts:                 prompts,
+		Concurrency:             scenario.Concurrency,
+		TotalRequests:           scenario.TotalRequests,
+		WarmupRequests:          scenario.WarmupRequests,
+		RampUpSeconds:           scenario.RampUpSeconds,
+		RandomPromptMode:        scenario.RandomPromptMode,
+		RandomPromptTargetChars: targetChars,
+		RandomPromptMaxChars:    maxChars,
 	}, nil
 }
 
@@ -139,3 +147,4 @@ func toRequestResultResponse(result model.RequestResult) dto.RequestResultRespon
 		CreatedAt:        result.CreatedAt,
 	}
 }
+
